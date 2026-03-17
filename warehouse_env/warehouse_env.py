@@ -54,7 +54,7 @@ class WareHouseEnv(MiniGridEnv):
         self.grid = Grid(width=width, height=height)
         self.grid.wall_rect(x=0, y=0, w=width, h=height)
 
-    def _add_grid_elements(self, height:int) -> None:
+    def _add_grid_elements(self, height: int) -> None:
         # 3. Add one internal wall as an example
         for row_int in range(2, height - 2):
             self.grid.set(i=5, j=row_int, v=Wall())
