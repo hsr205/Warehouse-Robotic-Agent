@@ -1,0 +1,23 @@
+[project]
+name = "final-robotics-project-materials"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Henry Rothenberg",email = "hsr205@aol.com"}
+]
+requires-python = ">=3.12,<3.15"
+dependencies = [
+    "numpy (>=2.4.3,<3.0.0)",
+    "torch (>=2.10.0,<3.0.0)",
+    "seaborn (>=0.13.2,<0.14.0)",
+    "matplotlib (>=3.10.8,<4.0.0)",
+    "torchrl (>=0.11.1,<0.12.0)",
+    "tqdm (>=4.67.3,<5.0.0)",
+    "pydantic (>=2.12.5,<3.0.0)",
+    "pydantic-settings (>=2.13.1,<3.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
