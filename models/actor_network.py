@@ -4,7 +4,7 @@ from torch import nn, Tensor
 
 
 class ActorNetwork(nn.Module):
-    def __init__(self, input_dimensions: int, output_dimensions: int):
+    def __init__(self, input_dimensions: int, output_dimensions: int, device):
         super(ActorNetwork, self).__init__()
 
         self._actor_network = nn.Sequential(
@@ -15,7 +15,7 @@ class ActorNetwork(nn.Module):
             nn.Linear(in_features=32, out_features=output_dimensions),
         )
 
-        self._device = self._get_device()
+        self._device = device
 
     def forward(self, observation) -> Tensor:
 
@@ -35,11 +35,3 @@ class ActorNetwork(nn.Module):
 
         return action_probabilities_tensor
 
-    def _get_device(self):
-
-        if torch.cuda.is_available():
-            return torch.device("cuda")
-        if torch.mps.is_available():
-            return torch.device("mps")
-
-        return torch.device("cpu")
