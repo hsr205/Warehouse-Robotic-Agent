@@ -13,7 +13,7 @@ def main() -> int:
     try:
 
         warehouse_env.randomly_navigate_custom_grid_world()
-        # warehouse_agent_ppo.simulate_agent_environment_navigation()
+        # warehouse_agent_ppo.train_agent()
 
         return 0
 
