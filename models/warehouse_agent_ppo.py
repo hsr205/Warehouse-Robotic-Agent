@@ -1,5 +1,4 @@
 import math
-from dataclasses import dataclass
 
 import numpy as np
 import torch
@@ -9,39 +8,10 @@ from torch.distributions import MultivariateNormal
 
 from logger.logger import AppLogger
 from models.actor_network import ActorNetwork
+from models.exponential_greedy_decay_scheduler import ExponentialGreedyDecayScheduler
+from models.step_data_obj import StepDataObj
 from utils.constants import Constants
 from warehouse_env.warehouse_env import WareHouseEnv
-
-
-@dataclass
-class StepDataObj:
-    observation_dict: dict
-    action_int: int
-    action_str: str
-    reward_float: float
-    is_done: bool
-    info_dict: dict
-
-
-class ExponentialGreedyDecayScheduler:
-    def __init__(self, value_from: float, value_to: float, num_steps: int):
-        self.value_from = value_from
-        self.value_to = value_to
-        self.num_steps = num_steps
-
-        self.a = value_from
-        self.b = math.log(value_to / value_from) / (num_steps - 1)
-
-    def get_epsilon_value(self, current_time_step: int) -> float:
-        if current_time_step <= 0:
-            return self.value_from
-
-        if current_time_step >= self.num_steps - 1:
-            return self.value_to
-
-        value = self.a * math.exp(self.b * current_time_step)
-
-        return value
 
 
 class WareHouseAgentPPO:
@@ -105,7 +75,6 @@ class WareHouseAgentPPO:
             for _ in range(0, self._num_updates_per_iteration):
                 # TODO: STOPPED HERE -
                 pass
-
 
     def _get_normalized_advantage_value(self, batch_rewards_tensor, v_tensor) -> Tensor:
 
@@ -240,7 +209,6 @@ class WareHouseAgentPPO:
                 reward_float: float = float(reward)
                 rewards_list.append(reward_float)
                 action_taken_list.append(action_int)
-
 
                 if is_done:
                     self._logger.info(f"Trial Number: {num_trial + 1}")
