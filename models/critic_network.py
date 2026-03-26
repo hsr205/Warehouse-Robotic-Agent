@@ -3,7 +3,7 @@ from torch import nn, Tensor
 
 
 class CriticNetwork(nn.Module):
-    def __init__(self, output_dimensions: int, device):
+    def __init__(self, device):
         super(CriticNetwork, self).__init__()
 
         # NOTE: We leverage a convolutional neural network because our observations are
@@ -24,7 +24,7 @@ class CriticNetwork(nn.Module):
             nn.Linear(in_features=32 * 7 * 7, out_features=128),
             nn.ReLU(),
 
-            nn.Linear(in_features=128, out_features=output_dimensions),
+            nn.Linear(in_features=128, out_features=1),
         )
 
         self._device = device
