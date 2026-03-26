@@ -49,8 +49,7 @@ class ActorNetwork(nn.Module):
 
         x = self._convolutional_neural_network(observation_tensor)
 
-        # Note: Flattens the tensor to something digestible for the FNN
-        x_flatten = x.view(x.size(0), -1)
+        x_flatten = torch.flatten(x, start_dim=1)
 
         logits = self._fully_connected_neural_network(x_flatten)
 
