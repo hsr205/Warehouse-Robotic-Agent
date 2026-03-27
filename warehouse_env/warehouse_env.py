@@ -207,7 +207,7 @@ class WareHouseEnv(MiniGridEnv):
         # Case 1: agent moves into obstacle
         if self._agent_hits_obstacle():
             reward = -1.0
-            is_terminated = False
+            is_terminated = True
             info["collision"] = True
             return observation, reward, is_terminated, is_truncated, info
 
@@ -224,7 +224,7 @@ class WareHouseEnv(MiniGridEnv):
         # Case 2: obstacle moves into agent
         if self._agent_hits_obstacle():
             reward = -1.0
-            is_terminated = False
+            is_terminated = True
             info["collision"] = True
             return observation, reward, is_terminated, is_truncated, info
 
