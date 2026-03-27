@@ -17,13 +17,14 @@ from warehouse_env.warehouse_env import WareHouseEnv
 class WareHouseAgentPPOEvaluation:
 
     def __init__(self) -> None:
-        self._device = self._get_device()
-        self._learning_rate: float = 0.005
+        self._learning_rate: float = 3e-4
         self._environment_obj: Env = WareHouseEnv(render_mode=None)
+        self._logger = AppLogger.get_logger(self.__class__.__name__)
         self._environment_obj_human_render_mode: Env = WareHouseEnv(render_mode='human')
         self._action_dimensions = self._environment_obj.action_space.n
         self._observation_dimensions = self._environment_obj.observation_space.get("direction").n
 
+        self._device = self._get_device()
         self._actor_network: ActorNetwork = ActorNetwork(output_dimensions=self._action_dimensions,
                                                          device=self._device)
         self._critic_network: CriticNetwork = CriticNetwork(device=self._device)
@@ -34,12 +35,10 @@ class WareHouseAgentPPOEvaluation:
         self._critic_network_optimizer: Adam = Adam(params=self._critic_network.parameters(),
                                                     lr=self._learning_rate)
 
-        self._logger = AppLogger.get_logger(self.__class__.__name__)
-
     def evaluate_agent(self, num_episodes: int = 10) -> dict[str, int | float | list]:
 
         # TODO: Make the following more dynamic after testing
-        checkpoint_path: Path = Path("model_weights/checkpoint_step_100_2026_03_27_15_33_55.pt")
+        checkpoint_path: Path = Path("model_weights/")
 
         checkpoint_time_step: int = self._load_checkpoint(checkpoint_path=checkpoint_path)
 
@@ -71,6 +70,8 @@ class WareHouseAgentPPOEvaluation:
                 observation_dict, reward, is_terminated, is_truncated, info_dict = self._environment_obj_human_render_mode.step(
                     action_int
                 )
+
+                is_done = is_terminated or is_truncated
 
                 episode_return += reward
                 episode_length += 1

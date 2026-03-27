@@ -24,13 +24,14 @@ class WareHouseAgentPPO:
         self._clip: float = 0.2
         self._gamma: float = 0.95
         self._device = self._get_device()
-        self._learning_rate: float = 0.005
+        self._learning_rate: float = 3e-4
         self._total_time_steps: int = 1_000
         self._time_steps_per_batch: int = 4_000
         self._num_updates_per_iteration: int = 5
         self._num_training_steps: int = 1_000_000
         self._max_time_steps_per_episode: int = 2_000
         self._environment_obj: Env = WareHouseEnv(render_mode=None)
+        self._logger = AppLogger.get_logger(self.__class__.__name__)
         self._environment_obj_human_render_mode: Env = WareHouseEnv(render_mode='human')
         self._action_dimensions = self._environment_obj.action_space.n
         self._observation_dimensions = self._environment_obj.observation_space.get("direction").n
@@ -49,7 +50,7 @@ class WareHouseAgentPPO:
         self._covariance_variable = torch.full(size=(self._action_dimensions,), fill_value=0.5)
         self._covariance_matrix = torch.diag(input=self._covariance_variable)
 
-        self._logger = AppLogger.get_logger(self.__class__.__name__)
+
 
     def train_agent(self) -> None:
 
@@ -132,6 +133,7 @@ class WareHouseAgentPPO:
     def _evaluate_agent(self, batch_observation_tensor: Tensor, batch_actions_tensor: Tensor) -> tuple[Tensor, Tensor]:
 
         # NOTE: Removes only the final dimension, not an entire flattening
+        #       Estimates V(s) for each state
         v_tensor: Tensor = self._critic_network(batch_observation_tensor).squeeze(-1)
 
         action_probabilities_tensor: Tensor = self._actor_network(batch_observation_tensor)
@@ -159,13 +161,15 @@ class WareHouseAgentPPO:
 
         while current_time_step < self._time_steps_per_batch:
 
-            episode_num_value: int = 0
+            episode_length: int = 0
             episode_rewards: list[float] = []
-            observation_dict, info_dict = self._environment_obj.reset(seed=42)
+            observation_dict, info_dict = self._environment_obj.reset(seed=42 + current_time_step)
 
-            for episode_num in range(0, self._max_time_steps_per_episode):
+            for _ in range(0, self._max_time_steps_per_episode):
 
-                current_time_step += 1
+                if current_time_step >= self._time_steps_per_batch:
+                    break
+
                 batch_observation_list.append(observation_dict)
 
                 action_int, log_probability = self._get_action(observation_dict=observation_dict)
@@ -178,12 +182,14 @@ class WareHouseAgentPPO:
                 episode_rewards.append(float(reward))
                 batch_actions_list.append(action_int)
                 batch_log_probability_list.append(log_probability)
-                episode_num_value = episode_num
+
+                current_time_step += 1
+                episode_length += 1
 
                 if is_done:
-                    observation_dict, info_dict = self._environment_obj.reset()
+                    break
 
-            batch_length_list.append(episode_num_value + 1)
+            batch_length_list.append(episode_length + 1)
             batch_rewards_list.append(episode_rewards)
 
         batch_observation_tensor: Tensor = self._get_observations_tensor(batch_observation_list=batch_observation_list)
@@ -229,31 +235,29 @@ class WareHouseAgentPPO:
                                                         dtype=torch.float32,
                                                         device=self._device)
 
-        # NOTE: For this normalization, the value, 255.0, is
-        #       leveraged as that is the maximum value that a pixel can hold
-        batch_observation_tensor = batch_observation_tensor / 255.0
-
-        # NOTE: The following rearranges the tensor into the following shape: (Batch_Num, Channels, Height, Width)
+        # NOTE: Convert from (Batch, Height, Width, Channel) to (Batch, Channel, Height, Width)
         batch_observation_tensor = batch_observation_tensor.permute(0, 3, 1, 2)
 
         return batch_observation_tensor
 
     def _get_rewards_tensor(self, batch_rewards_list: list[list[float]]) -> Tensor:
 
-        batch_rewards: list[float] = []
+        batch_discounted_rewards_list: list[float] = []
 
         for episode_rewards_list in batch_rewards_list:
-
             discounted_reward: float = 0.0
+            episode_discounted_rewards_reversed_list: list[float] = []
 
             for reward_value in reversed(episode_rewards_list):
                 discounted_reward = reward_value + discounted_reward * self._gamma
+                episode_discounted_rewards_reversed_list.append(discounted_reward)
 
-                # NOTE: Places each newly added value to the beginning of the list
-                # because we are working from the back of the episode_rewards_list
-                batch_rewards.insert(0, discounted_reward)
+            episode_discounted_rewards_list: list[float] = list(reversed(episode_discounted_rewards_reversed_list))
 
-        batch_rewards_tensor = torch.tensor(data=batch_rewards, dtype=torch.float32, device=self._device)
+            batch_discounted_rewards_list.extend(episode_discounted_rewards_list)
+
+        batch_rewards_tensor = torch.tensor(data=batch_discounted_rewards_list, dtype=torch.float32,
+                                            device=self._device)
 
         return batch_rewards_tensor
 
