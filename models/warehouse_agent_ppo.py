@@ -23,7 +23,7 @@ class WareHouseAgentPPO:
         #       does not change too dramatically when conducting SGA
         self._clip: float = 0.2
         self._gamma: float = 0.95
-        self._device = self._get_device()
+
         self._learning_rate: float = 3e-4
         self._total_time_steps: int = 1_000
         self._time_steps_per_batch: int = 4_000
@@ -35,6 +35,8 @@ class WareHouseAgentPPO:
         self._environment_obj_human_render_mode: Env = WareHouseEnv(render_mode='human')
         self._action_dimensions = self._environment_obj.action_space.n
         self._observation_dimensions = self._environment_obj.observation_space.get("direction").n
+
+        self._device = self._get_device()
 
         self._actor_network: ActorNetwork = ActorNetwork(output_dimensions=self._action_dimensions,
                                                          device=self._device)
