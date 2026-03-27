@@ -229,6 +229,8 @@ class WareHouseEnv(MiniGridEnv):
             return observation, reward, is_terminated, is_truncated, info
 
         # Case 3: agent reaches goal state
+        # TODO: After testing remove this, the goal is to deliver packages to
+        #       the correct locations while navigating through the environment optimally
         if self._agent_reaches_goal_state():
             reward = 1.0
             is_terminated = True
