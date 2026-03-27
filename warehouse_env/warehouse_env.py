@@ -187,6 +187,9 @@ class WareHouseEnv(MiniGridEnv):
     def _agent_hits_obstacle(self) -> bool:
         return any(obstacle["pos"] == self.agent_pos for obstacle in self.obstacles_list)
 
+    def _agent_reaches_goal_state(self) -> bool:
+        return self.agent_pos == self.goal_position_tuple
+
     def step(self, action):
         """
         One environment step:
@@ -204,7 +207,7 @@ class WareHouseEnv(MiniGridEnv):
         # Case 1: agent moves into obstacle
         if self._agent_hits_obstacle():
             reward = -1.0
-            is_terminated = True
+            is_terminated = False
             info["collision"] = True
             return observation, reward, is_terminated, is_truncated, info
 
@@ -221,9 +224,22 @@ class WareHouseEnv(MiniGridEnv):
         # Case 2: obstacle moves into agent
         if self._agent_hits_obstacle():
             reward = -1.0
-            is_terminated = True
+            is_terminated = False
             info["collision"] = True
             return observation, reward, is_terminated, is_truncated, info
+
+        # Case 3: agent reaches goal state
+        if self._agent_reaches_goal_state():
+            reward = 1.0
+            is_terminated = True
+            info["collision"] = False
+            return observation, reward, is_terminated, is_truncated, info
+
+        # TODO: Create more cases such as
+        #  (1) If the agent picks up an item
+        #  (2) If the agent drops off the item at the correct location
+        #  (3) If the agent drops the item (need to check if this is possible)
+        #  (4) If the agent drops the item in the wrong location
 
         info["collision"] = False
 
