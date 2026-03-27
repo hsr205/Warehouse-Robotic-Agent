@@ -67,7 +67,8 @@ class WareHouseAgentPPO:
             # FORMULA: π_theta(a_t,s_t) / π_theta_k(a_t,s_t):
             # Old Policy - π_theta(a,s)
             # New Policy - π_theta_k(a,s)
-            v_tensor, _ = self._evaluate_agent(batch_observation_tensor=batch_observation_tensor)
+            v_tensor, _ = self._evaluate_agent(batch_observation_tensor=batch_observation_tensor,
+                                               batch_actions_tensor=batch_actions_tensor)
 
             # NOTE: Calculates the advantage tensor
             advantage_value_tensor: Tensor = self._get_normalized_advantage_value(
@@ -79,7 +80,10 @@ class WareHouseAgentPPO:
 
             for _ in range(0, self._num_updates_per_iteration):
                 v_tensor, current_log_probabilities_tensor = self._evaluate_agent(
-                    batch_observation_tensor=batch_observation_tensor)
+                    batch_observation_tensor=batch_observation_tensor,
+                    batch_actions_tensor=batch_actions_tensor
+
+                )
 
                 # NOTE: This ratio is simply - π_theta(a_t | s_t) / π_theta_k(a_t | s_t)
                 ratios_tensor: Tensor = torch.exp(
@@ -125,7 +129,7 @@ class WareHouseAgentPPO:
 
         progress_bar.close()
 
-    def _evaluate_agent(self, batch_observation_tensor: Tensor) -> tuple[Tensor, Tensor]:
+    def _evaluate_agent(self, batch_observation_tensor: Tensor, batch_actions_tensor: Tensor) -> tuple[Tensor, Tensor]:
 
         # NOTE: Removes only the final dimension, not an entire flattening
         v_tensor: Tensor = self._critic_network(batch_observation_tensor).squeeze(-1)
@@ -135,9 +139,12 @@ class WareHouseAgentPPO:
         categorical_distribution: Categorical = Categorical(probs=action_probabilities_tensor)
 
         # NOTE: We sample from the actions available in categorical_distribution
-        action_tensor: Tensor = categorical_distribution.sample()
+        batch_actions_tensor = batch_actions_tensor.to(self._device).long()
 
-        log_probabilities_tensor: Tensor = categorical_distribution.log_prob(action_tensor)
+        if batch_actions_tensor.dim() > 1:
+            batch_actions_tensor = batch_actions_tensor.squeeze(-1)
+
+        log_probabilities_tensor: Tensor = categorical_distribution.log_prob(batch_actions_tensor)
 
         return v_tensor, log_probabilities_tensor
 
@@ -178,8 +185,6 @@ class WareHouseAgentPPO:
 
             batch_length_list.append(episode_num_value + 1)
             batch_rewards_list.append(episode_rewards)
-
-            break
 
         batch_observation_tensor: Tensor = self._get_observations_tensor(batch_observation_list=batch_observation_list)
 
