@@ -1,15 +1,18 @@
+from collections import OrderedDict
+from datetime import datetime
+from pathlib import Path
+
 import numpy as np
 import torch
 from gymnasium import Env
 from torch import nn, Tensor
-from torch.distributions import MultivariateNormal
+from torch.distributions import Categorical
 from torch.optim import Adam
+from tqdm import tqdm
 
 from logger.logger import AppLogger
 from models.actor_network import ActorNetwork
-from models.exponential_greedy_decay_scheduler import ExponentialGreedyDecayScheduler
-from models.step_data_obj import StepDataObj
-from utils.constants import Constants
+from models.critic_network import CriticNetwork
 from warehouse_env.warehouse_env import WareHouseEnv
 
 
@@ -22,24 +25,20 @@ class WareHouseAgentPPO:
         self._gamma: float = 0.95
         self._device = self._get_device()
         self._learning_rate: float = 0.005
-        self._total_time_steps: int = 10_000
+        self._total_time_steps: int = 1_000
         self._time_steps_per_batch: int = 4_000
         self._num_updates_per_iteration: int = 5
         self._num_training_steps: int = 1_000_000
         self._max_time_steps_per_episode: int = 2_000
         self._environment_obj: Env = WareHouseEnv(render_mode=None)
+        self._environment_obj_human_render_mode: Env = WareHouseEnv(render_mode='human')
         self._action_dimensions = self._environment_obj.action_space.n
         self._observation_dimensions = self._environment_obj.observation_space.get("direction").n
 
-        self._actor_network: ActorNetwork = ActorNetwork(input_dimensions=self._observation_dimensions,
-                                                         output_dimensions=self._action_dimensions,
-                                                         device=self._device
-                                                         )
+        self._actor_network: ActorNetwork = ActorNetwork(output_dimensions=self._action_dimensions,
+                                                         device=self._device)
         # TODO: Create separate critic network
-        self._critic_network: ActorNetwork = ActorNetwork(input_dimensions=self._observation_dimensions,
-                                                          output_dimensions=self._action_dimensions,
-                                                          device=self._device
-                                                          )
+        self._critic_network: CriticNetwork = CriticNetwork(device=self._device)
 
         self._actor_network_optimizer: Adam = Adam(params=self._actor_network.parameters(),
                                                    lr=self._learning_rate)
@@ -47,61 +46,121 @@ class WareHouseAgentPPO:
         self._critic_network_optimizer: Adam = Adam(params=self._critic_network.parameters(),
                                                     lr=self._learning_rate)
 
-        self._exponential_greedy_decay_scheduler: ExponentialGreedyDecayScheduler = ExponentialGreedyDecayScheduler(
-            value_from=1.0,
-            value_to=0.05,
-            num_steps=3_000
-        )
-
         # NOTE: Standard deviation set to 0.5 arbitrarily.
         self._covariance_variable = torch.full(size=(self._action_dimensions,), fill_value=0.5)
         self._covariance_matrix = torch.diag(input=self._covariance_variable)
 
         self._logger = AppLogger.get_logger(self.__class__.__name__)
 
-    def _evaluate_agent(self, batch_observation_tensor: Tensor, batch_actions_tensor: Tensor) -> tuple[Tensor, Tensor]:
-        v_tensor: Tensor = self._critic_network(batch_observation_tensor).squeeze()
+    # def _get_all_model_che
 
-        mean_value = self._actor_network(batch_observation_tensor)
-        multivariate_normal_distribution: MultivariateNormal = MultivariateNormal(loc=mean_value,
-                                                                                  covariance_matrix=self._covariance_matrix)
-        log_probabilities_tensor: Tensor = multivariate_normal_distribution.log_prob(value=batch_actions_tensor)
+    def evaluate_agent(self, num_episodes: int = 10) -> dict[str, int | float | list]:
 
-        return v_tensor, log_probabilities_tensor
+        # TODO: Make the following more dynamic after testing
+        checkpoint_path: Path = Path("")
+
+        checkpoint_time_step: int = self._load_checkpoint(checkpoint_path=checkpoint_path)
+
+        episode_returns_list: list[float] = []
+        episode_lengths_list: list[int] = []
+
+        for _ in tqdm(range(0, num_episodes), desc="Evaluate Agent Behaviour"):
+            # observation_dict, info_dict = self._environment_obj.reset()
+
+            # TODO: Remove after testing
+            observation_dict, info_dict = self._environment_obj_human_render_mode.reset()
+
+            is_terminated: bool = False
+            is_truncated: bool = False
+            episode_return: float = 0.0
+            episode_length: int = 0
+            is_done: bool = is_terminated or is_truncated
+
+            while not is_done:
+                action_int: int = self._get_evaluation_action(
+                    observation_dict=observation_dict,
+                )
+
+                # TODO: Remove after testing
+                # observation_dict, reward, is_terminated, is_truncated, info_dict = self._environment_obj.step(
+                #     action_int
+                # )
+
+                observation_dict, reward, is_terminated, is_truncated, info_dict = self._environment_obj_human_render_mode.step(
+                    action_int
+                )
+
+                episode_return += reward
+                episode_length += 1
+
+            episode_returns_list.append(episode_return)
+            episode_lengths_list.append(episode_length)
+
+        results_dict: dict[str, int | float | list] = {
+            "checkpoint_path": checkpoint_path,
+            "time_step": checkpoint_time_step,
+            "num_episodes": num_episodes,
+            "mean_return": float(np.mean(episode_returns_list)),
+            "min_return": float(np.min(episode_lengths_list)),
+            "max_return": float(np.max(episode_returns_list)),
+            "mean_episode_length": float(np.mean(episode_lengths_list)),
+            "std_episode_length": float(np.std(episode_lengths_list)),
+            "episode_returns": episode_returns_list,
+            "episode_lengths": episode_lengths_list
+        }
+
+        return results_dict
+
+    def _get_evaluation_action(self, observation_dict: dict) -> int:
+
+        observation_image_array: np.ndarray = observation_dict.get('image')
+
+        observation_tensor: Tensor = torch.tensor(data=observation_image_array,
+                                                  dtype=torch.float32,
+                                                  device=self._device)
+
+        if observation_tensor.dim() == 1:
+            observation_tensor = observation_tensor.unsqueeze(0)
+
+        with torch.no_grad():
+            action_probabilities_tensor: Tensor = self._actor_network(observation_tensor)
+
+            # NOTE: Always acting greedy, choosing the action with the highest probability from the softmax
+            action_tensor: Tensor = torch.argmax(action_probabilities_tensor, dim=-1)
+
+        action_int: int = int(action_tensor.item())
+
+        return action_int
 
     def train_agent(self) -> None:
-        current_time_step: int = 0
 
-        # TODO: Implement the following progress_bar
-        # progress_bar: tqdm = tqdm.trange(self._num_training_steps)
+        current_training_iteration: int = 0
+        progress_bar: tqdm = tqdm(total=self._total_time_steps, desc="Training Warehouse PPO Agent")
 
-        self._logger.info("Initializing Agent PPO Training")
-        self._logger.info("=" * 100)
+        while current_training_iteration <= self._total_time_steps:
 
-        while current_time_step <= self._total_time_steps:
-
-            if current_time_step % 100 == 0:
-                self._logger.info(f"Current Time Step: {current_time_step + 1}")
-                self._logger.info("=" * 100)
+            if current_training_iteration > 0 and current_training_iteration % 100 == 0:
+                self._save_checkpoint(current_training_iteration=current_training_iteration)
 
             batch_observation_tensor, batch_actions_tensor, batch_rewards_tensor, batch_length_tensor, batch_log_probability_tensor = self._rollout()
 
             # NOTE: Calculates V from the critic_network, and the log probabilities for to minimize the following formula:
-            # FORMULA: π_theta(a_t,s_t) / π_theta_k(a_t,s_t)
+            # FORMULA: π_theta(a_t,s_t) / π_theta_k(a_t,s_t):
             # Old Policy - π_theta(a,s)
             # New Policy - π_theta_k(a,s)
-            v_tensor, _ = self._evaluate_agent(batch_observation_tensor=batch_observation_tensor,
-                                               batch_actions_tensor=batch_actions_tensor)
+            v_tensor, _ = self._evaluate_agent(batch_observation_tensor=batch_observation_tensor)
 
             # NOTE: Calculates the advantage tensor
             advantage_value_tensor: Tensor = self._get_normalized_advantage_value(
                 batch_rewards_tensor=batch_rewards_tensor,
                 v_tensor=v_tensor)
 
+            actor_network_loss_tensor: Tensor | None = None
+            critic_network_loss_tensor: Tensor | None = None
+
             for _ in range(0, self._num_updates_per_iteration):
                 v_tensor, current_log_probabilities_tensor = self._evaluate_agent(
-                    batch_observation_tensor=batch_observation_tensor,
-                    batch_actions_tensor=batch_actions_tensor)
+                    batch_observation_tensor=batch_observation_tensor)
 
                 # NOTE: This ratio is simply - π_theta(a_t | s_t) / π_theta_k(a_t | s_t)
                 ratios_tensor: Tensor = torch.exp(
@@ -135,20 +194,35 @@ class WareHouseAgentPPO:
                 critic_network_loss_tensor.backward()
                 self._critic_network_optimizer.step()
 
-            current_time_step += np.sum(batch_length_tensor)
+            progress_bar.update(1)
 
-    def _get_normalized_advantage_value(self, batch_rewards_tensor, v_tensor) -> Tensor:
+            if actor_network_loss_tensor is not None and critic_network_loss_tensor is not None:
+                progress_bar.set_postfix({
+                    "actor_loss": actor_network_loss_tensor.item(),
+                    "critic_loss": critic_network_loss_tensor.item()
+                })
 
-        advantage_value_tensor: Tensor = batch_rewards_tensor - v_tensor.detach()
+            current_training_iteration += 1
 
-        numerator_value = advantage_value_tensor - advantage_value_tensor.mean()
-        denominator_value = advantage_value_tensor.std() + 1e-10
+        progress_bar.close()
 
-        return numerator_value / denominator_value
+    def _evaluate_agent(self, batch_observation_tensor: Tensor) -> tuple[Tensor, Tensor]:
+
+        # NOTE: Removes only the final dimension, not an entire flattening
+        v_tensor: Tensor = self._critic_network(batch_observation_tensor).squeeze(-1)
+
+        action_probabilities_tensor: Tensor = self._actor_network(batch_observation_tensor)
+
+        categorical_distribution: Categorical = Categorical(probs=action_probabilities_tensor)
+
+        # NOTE: We sample from the actions available in categorical_distribution
+        action_tensor: Tensor = categorical_distribution.sample()
+
+        log_probabilities_tensor: Tensor = categorical_distribution.log_prob(action_tensor)
+
+        return v_tensor, log_probabilities_tensor
 
     def _rollout(self) -> tuple:
-
-        self._logger.info(f"Inside _rollout() method")
 
         current_time_step: int = 0
         batch_length_list: list[int] = []
@@ -163,28 +237,17 @@ class WareHouseAgentPPO:
             episode_rewards: list[float] = []
             observation_dict, info_dict = self._environment_obj.reset(seed=42)
 
-            self._logger.info(f"Inside _rollout() method - while loop")
-
             for episode_num in range(0, self._max_time_steps_per_episode):
-
-                self._logger.info(f"Inside _rollout() method - for loop")
 
                 current_time_step += 1
                 batch_observation_list.append(observation_dict)
 
-                action_int, log_probability = self._get_action(observation_dict=observation_dict,
-                                                               current_time_step=current_time_step)
+                action_int, log_probability = self._get_action(observation_dict=observation_dict)
 
-                self._logger.info(f"Breaking in method: {__method__}")
-                self._logger.info(f"type(action_int) = {type(action_int)}")
-                self._logger.info(f"type(log_probability) = {type(log_probability)}")
-
-                break
-
-                observation_dict, reward, terminated_bool, truncated_bool, info_dict = self._environment_obj.step(
+                observation_dict, reward, is_terminated, is_truncated, info_dict = self._environment_obj.step(
                     action_int
                 )
-                is_done: bool = terminated_bool or truncated_bool
+                is_done: bool = is_terminated or is_truncated
 
                 episode_rewards.append(float(reward))
                 batch_actions_list.append(action_int)
@@ -199,9 +262,7 @@ class WareHouseAgentPPO:
 
             break
 
-        batch_observation_tensor: Tensor = torch.tensor(data=batch_observation_list,
-                                                        dtype=torch.dict,
-                                                        device=self._device)
+        batch_observation_tensor: Tensor = self._get_observations_tensor(batch_observation_list=batch_observation_list)
 
         batch_actions_tensor: Tensor = torch.tensor(data=batch_actions_list,
                                                     dtype=torch.int,
@@ -214,12 +275,44 @@ class WareHouseAgentPPO:
                                                    device=self._device)
 
         batch_log_probability_tensor: Tensor = torch.tensor(data=batch_log_probability_list,
-                                                            dtype=torch.list,
+                                                            dtype=torch.float32,
                                                             device=self._device)
 
         self._environment_obj.close()
 
         return batch_observation_tensor, batch_actions_tensor, batch_rewards_tensor, batch_length_tensor, batch_log_probability_tensor
+
+    def _get_normalized_advantage_value(self, batch_rewards_tensor: Tensor, v_tensor: Tensor) -> Tensor:
+
+        advantage_value_tensor: Tensor = batch_rewards_tensor - v_tensor.detach()
+
+        numerator_value = advantage_value_tensor - advantage_value_tensor.mean()
+        denominator_value = advantage_value_tensor.std() + 1e-10
+
+        return numerator_value / denominator_value
+
+    def _get_observations_tensor(self, batch_observation_list: list[dict]) -> Tensor:
+
+        batch_observation_image_list: list[np.ndarray] = []
+
+        for observation_dict in batch_observation_list:
+            observation_image_array: np.ndarray = observation_dict.get('image')
+            batch_observation_image_list.append(observation_image_array)
+
+        batch_observation_image_array: np.ndarray = np.array(batch_observation_image_list)
+
+        batch_observation_tensor: Tensor = torch.tensor(data=batch_observation_image_array,
+                                                        dtype=torch.float32,
+                                                        device=self._device)
+
+        # NOTE: For this normalization, the value, 255.0, is
+        #       leveraged as that is the maximum value that a pixel can hold
+        batch_observation_tensor = batch_observation_tensor / 255.0
+
+        # NOTE: The following rearranges the tensor into the following shape: (Batch_Num, Channels, Height, Width)
+        batch_observation_tensor = batch_observation_tensor.permute(0, 3, 1, 2)
+
+        return batch_observation_tensor
 
     def _get_rewards_tensor(self, batch_rewards_list: list[list[float]]) -> Tensor:
 
@@ -231,101 +324,80 @@ class WareHouseAgentPPO:
 
             for reward_value in reversed(episode_rewards_list):
                 discounted_reward = reward_value + discounted_reward * self._gamma
-                # Places each newly added value to the beginning of the list
+
+                # NOTE: Places each newly added value to the beginning of the list
                 # because we are working from the back of the episode_rewards_list
                 batch_rewards.insert(0, discounted_reward)
 
-        batch_rewards_tensor = torch.tensor(data=batch_rewards, dtype=torch.list, device=self._device)
+        batch_rewards_tensor = torch.tensor(data=batch_rewards, dtype=torch.float32, device=self._device)
 
         return batch_rewards_tensor
 
-    def _get_action(self, observation_dict: dict, current_time_step: int) -> tuple[Tensor, Tensor]:
+    def _get_action(self, observation_dict: dict) -> tuple[int, float]:
 
-        observation_image_array:np.ndarray = observation_dict.get("image")
+        observation_image_array: np.ndarray = observation_dict.get("image")
 
-        observation_tensor:Tensor = torch.tensor(data=observation_image_array, dtype=torch.float32, device=self._device)
+        observation_tensor: Tensor = torch.tensor(data=observation_image_array,
+                                                  dtype=torch.float32,
+                                                  device=self._device)
 
+        # NOTE: Conducts a forward pass through the actor_network in order to retrieve the soft_max probability distribution
+        action_probabilities: Tensor = self._actor_network(observation_tensor)
 
-        mean_value = self._actor_network(observation_tensor)
+        # NOTE: Takes the action_probabilities and converts them back into categorical actions, values 0-6
+        categorical_distribution: Categorical = Categorical(probs=action_probabilities)
 
-        # NOTE: Creates a normal distribution across all variables (actions)
-        multivariate_normal_distribution: MultivariateNormal = MultivariateNormal(loc=mean_value,
-                                                                                  covariance_matrix=self._covariance_matrix)
+        # NOTE: We sample from the actions available in categorical_distribution
+        action_tensor: Tensor = categorical_distribution.sample()
 
+        log_probabilities_tensor: Tensor = categorical_distribution.log_prob(action_tensor)
 
-        action_tensor: Tensor = torch.tensor(data=[], device=self._device)
-        log_probabilities_tensor: Tensor = multivariate_normal_distribution.log_prob(value=action_tensor)
+        return action_tensor.item(), log_probabilities_tensor.item()
 
-        epsilon_value: float = self._exponential_greedy_decay_scheduler.get_epsilon_value(
-            current_time_step=current_time_step)
+    def _save_checkpoint(self, current_training_iteration: int) -> None:
 
+        file_path: Path = self._get_file_path(current_training_iteration=current_training_iteration)
 
-        # NOTE: Explore using e-greedy decay
-        if np.random.rand() < epsilon_value:
-            action_tensor = multivariate_normal_distribution.sample()
-            log_probabilities_tensor = multivariate_normal_distribution.log_prob(value=action_tensor)
+        checkpoint_dict: dict[str, int | OrderedDict | dict] = {
+            "current_training_iteration": current_training_iteration,
+            "actor_state_dict": self._actor_network.state_dict(),
+            "critic_state_dict": self._critic_network.state_dict(),
+            "actor_optimizer_state_dict": self._actor_network_optimizer.state_dict(),
+            "critic_optimizer_state_dict": self._critic_network_optimizer.state_dict(),
+        }
 
-            return action_tensor.detach().numpy(), log_probabilities_tensor.detach()
+        torch.save(checkpoint_dict, file_path)
 
-        # NOTE: Exploit using argmax of all possible actions
-        action_tensor = np.argmax(a=self._actor_network(action_tensor))
+        self._logger.info("=" * 100)
+        self._logger.info(f"Successfully saved: {file_path}")
+        self._logger.info("=" * 100)
 
-        self._logger.info("End of _get_action() method")
+    def _load_checkpoint(self, checkpoint_path: Path) -> int:
+        checkpoint_dict: dict[str, int | OrderedDict | dict] = torch.load(checkpoint_path, map_location=self._device)
 
-        return action_tensor, log_probabilities_tensor
+        self._actor_network.load_state_dict(checkpoint_dict["actor_state_dict"])
+        self._critic_network.load_state_dict(checkpoint_dict["critic_state_dict"])
+        self._actor_network_optimizer.load_state_dict(checkpoint_dict["actor_optimizer_state_dict"])
+        self._critic_network_optimizer.load_state_dict(checkpoint_dict["critic_optimizer_state_dict"])
 
-    def simulate_agent_environment_navigation(self, num_trial_runs: int) -> None:
+        self._actor_network.to(self._device)
+        self._critic_network.to(self._device)
 
-        for num_trial in range(0, num_trial_runs):
+        self._actor_network.eval()
+        self._critic_network.eval()
 
-            observation_dict, info_dict = self._environment_obj.reset(seed=42)
+        return checkpoint_dict["current_training_iteration"]
 
-            is_done: bool = False
-            episode_step_counter: int = 0
-            rewards_list: list[float] = []
-            action_taken_list: list[int] = []
+    def _get_file_path(self, current_training_iteration: int) -> Path:
 
-            while not is_done or episode_step_counter >= self._max_time_steps_per_episode:
-                episode_step_counter += 1
-                action_int = self._environment_obj.action_space.sample()
-                observation_dict, reward, terminated_bool, truncated_bool, info_dict = self._environment_obj.step(
-                    action_int
-                )
+        model_weights_directory_path: Path = Path("model_weights")
+        model_weights_directory_path.mkdir(parents=True, exist_ok=True)
+        timestamp_string: str = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 
-                action_str: str = Constants.ACTION_SPACE_MAPPING_DICT.get(action_int, "")
-                is_done = terminated_bool or truncated_bool
-                reward_float: float = float(reward)
+        filename: str = f"checkpoint_step_{current_training_iteration}_{timestamp_string}.pt"
+        checkpoint_path: Path = model_weights_directory_path / filename
 
-                step_data_obj: StepDataObj = StepDataObj(observation_dict=observation_dict,
-                                                         action_int=action_int,
-                                                         action_str=action_str,
-                                                         reward_float=reward_float,
-                                                         is_done=is_done,
-                                                         info_dict=info_dict)
-
-                self.display_step_information(step_data_obj=step_data_obj)
-
-                reward_float: float = float(reward)
-                rewards_list.append(reward_float)
-                action_taken_list.append(action_int)
-
-                if is_done:
-                    self._logger.info(f"Trial Number: {num_trial + 1}")
-                    self._logger.info(f"Reached goal state in {episode_step_counter:,} steps")
-                    self._logger.info("=" * 100)
-                    observation_dict, info_dict = self._environment_obj.reset()
-
-        self._environment_obj.close()
-
-    def display_step_information(self, step_data_obj: StepDataObj) -> None:
-
-        self._logger.info(
-            f"action_int={step_data_obj.action_int}, "
-            f"reward={step_data_obj.reward_float:.2f}, "
-            f"action_str={step_data_obj.action_str}, "
-            f"is_done={step_data_obj.is_done}, "
-            f"info={step_data_obj.info_dict}"
-        )
+        return checkpoint_path
 
     def _get_device(self):
         if torch.cuda.is_available():
