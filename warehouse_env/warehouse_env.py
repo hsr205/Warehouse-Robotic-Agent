@@ -7,6 +7,7 @@ from minigrid.core.grid import Grid
 from minigrid.core.mission import MissionSpace
 from minigrid.core.world_object import Goal, Wall, Ball
 from minigrid.minigrid_env import MiniGridEnv
+from typing_extensions import SupportsFloat
 
 from logger.logger import AppLogger
 
@@ -199,6 +200,8 @@ class WareHouseEnv(MiniGridEnv):
         4. Check collision again
         5. Apply custom reward shaping
         """
+        previous_distance_to_goal: int = self._get_manhattan_distance_to_goal()
+
         observation, reward, is_terminated, is_truncated, info = super().step(action)
 
         # Small step penalty to encourage efficiency
@@ -248,9 +251,26 @@ class WareHouseEnv(MiniGridEnv):
         # Case: 6
         #  (4) If the agent drops the item in the wrong location - penalty
 
+        self._add_agent_incentive_towards_goal_state(reward=reward,
+                                                     previous_distance_to_goal=previous_distance_to_goal)
+
         info["collision"] = False
 
         return observation, reward, is_terminated, is_truncated, info
+
+    def _add_agent_incentive_towards_goal_state(self, reward: SupportsFloat, previous_distance_to_goal: int) -> None:
+        current_distance_to_goal: int = self._get_manhattan_distance_to_goal()
+
+        if current_distance_to_goal < previous_distance_to_goal:
+            reward += 0.05
+        elif current_distance_to_goal > previous_distance_to_goal:
+            reward -= 0.05
+
+    def _get_manhattan_distance_to_goal(self) -> int:
+        current_x_coordinate, current_y_coordinate = self.agent_pos
+        goal_x_coordinate, goal_y_coordinate = self.goal_position_tuple
+
+        return abs(current_x_coordinate - goal_x_coordinate) + abs(current_y_coordinate - goal_y_coordinate)
 
     def randomly_navigate_custom_grid_world(self) -> None:
         environment_obj: Env = WareHouseEnv(render_mode="human")
