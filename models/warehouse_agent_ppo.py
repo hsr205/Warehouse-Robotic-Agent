@@ -27,7 +27,7 @@ class WareHouseAgentPPO:
 
         self._learning_rate: float = 3e-4
         self._total_time_steps: int = 1_000
-        self._entropy_coefficient: float = 0.01
+        self._entropy_coefficient: float = 0.02
         self._time_steps_per_batch: int = 4_000
         self._num_updates_per_iteration: int = 5
         self._num_training_steps: int = 1_000_000
@@ -65,6 +65,8 @@ class WareHouseAgentPPO:
         progress_bar: tqdm = tqdm(total=self._total_time_steps, desc="Training Warehouse PPO Agent")
 
         while current_training_iteration <= self._total_time_steps:
+
+            self._entropy_coefficient = max(0.005, self._entropy_coefficient * 0.995)
 
             # # TODO: Uncomment after testing
             # if current_training_iteration > 0 and current_training_iteration % 100 == 0:
