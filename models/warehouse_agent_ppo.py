@@ -329,12 +329,12 @@ class WareHouseAgentPPO:
 
     def _get_device(self):
         if torch.cuda.is_available():
-            self._logger.info("Using device CUDA")
+            self._logger.info("Using Device CUDA")
             return torch.device("cuda")
         if torch.mps.is_available():
-            self._logger.info("Using device MPS")
+            self._logger.info("Using Device MPS")
             return torch.device("mps")
 
-        self._logger.info("Using device CPU")
+        self._logger.info("Using Device CPU")
 
         return torch.device("cpu")
