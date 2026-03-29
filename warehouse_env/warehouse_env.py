@@ -232,16 +232,21 @@ class WareHouseEnv(MiniGridEnv):
         # TODO: After testing remove this, the goal is to deliver packages to
         #       the correct locations while navigating through the environment optimally
         if self._agent_reaches_goal_state():
-            reward = 1.0
+            reward = 1
             is_terminated = True
             info["collision"] = False
             return observation, reward, is_terminated, is_truncated, info
 
         # TODO: Create more cases such as
+
+        # Case 4:
         #  (1) If the agent picks up an item
+
+        # Case 5:
         #  (2) If the agent drops off the item at the correct location
-        #  (3) If the agent drops the item (need to check if this is possible)
-        #  (4) If the agent drops the item in the wrong location
+
+        # Case: 6
+        #  (4) If the agent drops the item in the wrong location - penalty
 
         info["collision"] = False
 
