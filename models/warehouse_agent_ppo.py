@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from gymnasium import Env
+from gymnasium.spaces import Discrete
 from torch import nn, Tensor
 from torch.distributions import Categorical
 from torch.optim import Adam
@@ -26,6 +27,7 @@ class WareHouseAgentPPO:
 
         self._learning_rate: float = 3e-4
         self._total_time_steps: int = 1_000
+        self._entropy_coefficient: float = 0.01
         self._time_steps_per_batch: int = 4_000
         self._num_updates_per_iteration: int = 5
         self._num_training_steps: int = 1_000_000
@@ -33,7 +35,12 @@ class WareHouseAgentPPO:
         self._environment_obj: Env = WareHouseEnv(render_mode=None)
         self._logger = AppLogger.get_logger(self.__class__.__name__)
         self._environment_obj_human_render_mode: Env = WareHouseEnv(render_mode='human')
-        self._action_dimensions = self._environment_obj.action_space.n
+        # # TODO: Uncomment after testing
+        # self._action_dimensions = self._environment_obj.action_space.n
+
+        # TODO: Remove after testing
+        self._action_dimensions = self._environment_obj.action_space = Discrete(3).n
+
         self._observation_dimensions = self._environment_obj.observation_space.get("direction").n
 
         self._device = self._get_device()
@@ -52,8 +59,6 @@ class WareHouseAgentPPO:
         self._covariance_variable = torch.full(size=(self._action_dimensions,), fill_value=0.5)
         self._covariance_matrix = torch.diag(input=self._covariance_variable)
 
-
-
     def train_agent(self) -> None:
 
         current_training_iteration: int = 0
@@ -61,7 +66,12 @@ class WareHouseAgentPPO:
 
         while current_training_iteration <= self._total_time_steps:
 
-            if current_training_iteration > 0 and current_training_iteration % 100 == 0:
+            # # TODO: Uncomment after testing
+            # if current_training_iteration > 0 and current_training_iteration % 100 == 0:
+            #     self._save_checkpoint(current_training_iteration=current_training_iteration)
+
+            # TODO: Remove after testing
+            if current_training_iteration > 0 and current_training_iteration % 50 == 0:
                 self._save_checkpoint(current_training_iteration=current_training_iteration)
 
             batch_observation_tensor, batch_actions_tensor, batch_rewards_tensor, batch_length_tensor, batch_log_probability_tensor = self._rollout()
@@ -70,8 +80,8 @@ class WareHouseAgentPPO:
             # FORMULA: π_theta(a_t,s_t) / π_theta_k(a_t,s_t):
             # Old Policy - π_theta(a,s)
             # New Policy - π_theta_k(a,s)
-            v_tensor, _ = self._evaluate_agent(batch_observation_tensor=batch_observation_tensor,
-                                               batch_actions_tensor=batch_actions_tensor)
+            v_tensor, _, _ = self._evaluate_agent(batch_observation_tensor=batch_observation_tensor,
+                                                  batch_actions_tensor=batch_actions_tensor)
 
             # NOTE: Calculates the advantage tensor
             advantage_value_tensor: Tensor = self._get_normalized_advantage_value(
@@ -82,7 +92,7 @@ class WareHouseAgentPPO:
             critic_network_loss_tensor: Tensor | None = None
 
             for _ in range(0, self._num_updates_per_iteration):
-                v_tensor, current_log_probabilities_tensor = self._evaluate_agent(
+                v_tensor, current_log_probabilities_tensor, entropy_tensor = self._evaluate_agent(
                     batch_observation_tensor=batch_observation_tensor,
                     batch_actions_tensor=batch_actions_tensor
 
@@ -102,8 +112,8 @@ class WareHouseAgentPPO:
                                                               upper_bound_clip_value) * advantage_value_tensor
                 # NOTE: Maximizes loss through negation
                 #       this will be optimized by Adam later and will improve performance
-                actor_network_loss_tensor: Tensor = (
-                    -torch.min(surrogate_loss_tensor_1, surrogate_loss_tensor_2)).mean()
+                actor_network_loss_tensor: Tensor = -torch.min(surrogate_loss_tensor_1,
+                                                               surrogate_loss_tensor_2).mean() - self._entropy_coefficient * entropy_tensor.mean()
 
                 # NOTE: Zeroes out the gradient
                 #       Conducts a backward propagation of the calculated loss
@@ -132,7 +142,8 @@ class WareHouseAgentPPO:
 
         progress_bar.close()
 
-    def _evaluate_agent(self, batch_observation_tensor: Tensor, batch_actions_tensor: Tensor) -> tuple[Tensor, Tensor]:
+    def _evaluate_agent(self, batch_observation_tensor: Tensor, batch_actions_tensor: Tensor) -> tuple[
+        Tensor, Tensor, Tensor]:
 
         # NOTE: Removes only the final dimension, not an entire flattening
         #       Estimates V(s) for each state
@@ -150,7 +161,9 @@ class WareHouseAgentPPO:
 
         log_probabilities_tensor: Tensor = categorical_distribution.log_prob(batch_actions_tensor)
 
-        return v_tensor, log_probabilities_tensor
+        entropy_tensor: Tensor = categorical_distribution.entropy()
+
+        return v_tensor, log_probabilities_tensor, entropy_tensor
 
     def _rollout(self) -> tuple:
 
@@ -298,6 +311,7 @@ class WareHouseAgentPPO:
 
         torch.save(checkpoint_dict, file_path)
 
+        self._logger.info("\n")
         self._logger.info("=" * 100)
         self._logger.info(f"Successfully saved: {file_path}")
         self._logger.info("=" * 100)
