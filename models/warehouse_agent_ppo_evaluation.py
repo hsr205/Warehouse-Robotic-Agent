@@ -49,9 +49,6 @@ class WareHouseAgentPPOEvaluation:
         # checkpoint_path: Path = Path("model_weights/")
         # checkpoint_path: Path = Path("model_weights/")
         # checkpoint_path: Path = Path("model_weights/")
-        # checkpoint_path: Path = Path("model_weights/")
-        # checkpoint_path: Path = Path("model_weights/")
-        # checkpoint_path: Path = Path("model_weights/")
 
         checkpoint_time_step: int = self._load_checkpoint(checkpoint_path=checkpoint_path)
 
