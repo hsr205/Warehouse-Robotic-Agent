@@ -275,7 +275,7 @@ class WareHouseEnv(MiniGridEnv):
         #  (2) If the agent drops off the item at the correct location
 
         # Case: 6
-        #  (4) If the agent drops the item in the wrong location - penalty
+        #  (3) If the agent drops the item in the wrong location - penalty
 
         reward = self._add_agent_incentive_towards_goal_state(reward=reward,
                                                               previous_distance_to_goal=previous_distance_to_goal)
