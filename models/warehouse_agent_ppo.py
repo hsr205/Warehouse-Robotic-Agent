@@ -25,7 +25,7 @@ class WareHouseAgentPPO:
         self._gamma: float = 0.95
 
         self._learning_rate: float = 3e-4
-        self._total_time_steps: int = 1_000
+        self._total_time_steps: int = 500
         self._entropy_coefficient: float = 0.06
         self._time_steps_per_batch: int = 1_000
         self._num_updates_per_iteration: int = 5
@@ -67,7 +67,6 @@ class WareHouseAgentPPO:
 
             # self._entropy_coefficient = max(0.005, self._entropy_coefficient * 0.995)
 
-            # TODO: Uncomment after testing
             if current_training_iteration > 0 and current_training_iteration % 100 == 0:
                 self._save_checkpoint(current_training_iteration=current_training_iteration)
 
