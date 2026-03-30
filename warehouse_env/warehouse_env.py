@@ -191,7 +191,7 @@ class WareHouseEnv(MiniGridEnv):
     def _agent_reaches_goal_state(self) -> bool:
         return self.agent_pos == self.goal_position_tuple
 
-    def step(self, action):
+    def step(self, action) -> tuple:
         """
         One environment step:
         1. Move agent using MiniGrid logic
@@ -251,20 +251,23 @@ class WareHouseEnv(MiniGridEnv):
         # Case: 6
         #  (4) If the agent drops the item in the wrong location - penalty
 
-        self._add_agent_incentive_towards_goal_state(reward=reward,
-                                                     previous_distance_to_goal=previous_distance_to_goal)
+        reward = self._add_agent_incentive_towards_goal_state(reward=reward,
+                                                              previous_distance_to_goal=previous_distance_to_goal)
 
         info["collision"] = False
 
         return observation, reward, is_terminated, is_truncated, info
 
-    def _add_agent_incentive_towards_goal_state(self, reward: SupportsFloat, previous_distance_to_goal: int) -> None:
+    def _add_agent_incentive_towards_goal_state(self, reward: SupportsFloat,
+                                                previous_distance_to_goal: int) -> SupportsFloat:
         current_distance_to_goal: int = self._get_manhattan_distance_to_goal()
 
         if current_distance_to_goal < previous_distance_to_goal:
             reward += 0.05
         elif current_distance_to_goal > previous_distance_to_goal:
             reward -= 0.05
+
+        return reward
 
     def _get_manhattan_distance_to_goal(self) -> int:
         current_x_coordinate, current_y_coordinate = self.agent_pos
