@@ -9,3 +9,4 @@ __pycache__/
 
 model_weights/
 
+model_weights_a2c/

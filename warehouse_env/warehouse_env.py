@@ -227,7 +227,24 @@ class WareHouseEnv(MiniGridEnv):
         """
         previous_distance_to_goal: int = self._get_manhattan_distance(position_tuple=self._pickup_position_tuple)
 
+        previous_agent_pos = tuple(self.agent_pos)
+        previous_agent_dir = self.agent_dir
+        
         observation, reward, is_terminated, is_truncated, info = super().step(action)
+        
+        current_agent_pos = tuple(self.agent_pos)
+
+        blocked_forward = (
+            action == self.actions.forward and
+            current_agent_pos == previous_agent_pos
+            )
+        
+        # Penalize trying to move forward into wall/blocked cell
+        if blocked_forward:
+            reward -= 0.1
+            info["blocked_forward"] = True
+        else:
+            info["blocked_forward"] = False
 
         # Small step penalty to encourage efficiency
         reward += self.step_penalty
