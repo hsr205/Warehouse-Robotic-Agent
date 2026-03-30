@@ -53,7 +53,6 @@ class WareHouseEnv(MiniGridEnv):
 
     def _gen_grid(self, width: int, height: int) -> None:
         self._create_grid_world(width=width, height=height)
-        self._add_grid_elements(width=width, height=height)
 
         # Goal position
         self.goal_position_tuple = (width - 2, height - 2)
