@@ -116,6 +116,9 @@ class WareHouseAgentA2CEvaluation:
 
         with torch.no_grad():
             action_probabilities_tensor: Tensor = self._actor_network(observation_tensor)
+
+            self._logger.info(f"action_probabilities_tensor = {action_probabilities_tensor}")
+
             action_tensor: Tensor = torch.argmax(action_probabilities_tensor, dim=-1)
 
         return int(action_tensor.item())
