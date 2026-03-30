@@ -4,7 +4,6 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from gymnasium import Env
 from gymnasium.spaces import Discrete
 from torch import nn, Tensor
 from torch.distributions import Categorical
@@ -27,14 +26,14 @@ class WareHouseAgentPPO:
 
         self._learning_rate: float = 3e-4
         self._total_time_steps: int = 1_000
-        self._entropy_coefficient: float = 0.02
+        self._entropy_coefficient: float = 0.06
         self._time_steps_per_batch: int = 4_000
         self._num_updates_per_iteration: int = 5
         self._num_training_steps: int = 1_000_000
         self._max_time_steps_per_episode: int = 2_000
-        self._environment_obj: Env = WareHouseEnv(render_mode=None)
+        self._environment_obj: WareHouseEnv = WareHouseEnv(render_mode=None)
         self._logger = AppLogger.get_logger(self.__class__.__name__)
-        self._environment_obj_human_render_mode: Env = WareHouseEnv(render_mode='human')
+        self._environment_obj_human_render_mode: WareHouseEnv = WareHouseEnv(render_mode='human')
         # # TODO: Uncomment after testing
         # self._action_dimensions = self._environment_obj.action_space.n
 
@@ -66,7 +65,7 @@ class WareHouseAgentPPO:
 
         while current_training_iteration <= self._total_time_steps:
 
-            self._entropy_coefficient = max(0.005, self._entropy_coefficient * 0.995)
+            # self._entropy_coefficient = max(0.005, self._entropy_coefficient * 0.995)
 
             # # TODO: Uncomment after testing
             # if current_training_iteration > 0 and current_training_iteration % 100 == 0:
