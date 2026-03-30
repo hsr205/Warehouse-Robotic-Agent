@@ -5,7 +5,7 @@ import gymnasium as gym
 from gymnasium import Env
 from minigrid.core.grid import Grid
 from minigrid.core.mission import MissionSpace
-from minigrid.core.world_object import Goal, Wall, Ball
+from minigrid.core.world_object import Goal, Wall, Ball, Box
 from minigrid.minigrid_env import MiniGridEnv
 from typing_extensions import SupportsFloat
 
@@ -28,6 +28,9 @@ class WareHouseEnv(MiniGridEnv):
         self.num_obstacles = num_obstacles
         self.agent_start_direction = agent_start_direction
         self.agent_start_position_tuple = agent_start_position_tuple
+
+        self._is_carrying_package: bool = False
+        self._pickup_position_tuple: tuple[int, int] = (0, 0)
 
         # Fixed obstacle start positions if not provided
         self.initial_obstacle_positions = obstacle_positions or [(2, 6), (10, 10)]
@@ -54,6 +57,8 @@ class WareHouseEnv(MiniGridEnv):
     def _gen_grid(self, width: int, height: int) -> None:
         self._create_grid_world(width=width, height=height)
 
+        self._place_box_pickup_items()
+
         # Goal position
         self.goal_position_tuple = (width - 2, height - 2)
         self.put_obj(Goal(), *self.goal_position_tuple)
@@ -64,13 +69,34 @@ class WareHouseEnv(MiniGridEnv):
         # Place agent
         self._place_agent_at_starting_position()
 
-        self.mission = "Navigate Warehouse, Avoid Obstacles, Reach Goal"
+        self.mission = "Navigate Warehouse, Deliver Packages, Reach Goal"
 
     def _create_grid_world(self, width: int, height: int) -> None:
         self.grid = Grid(width=width, height=height)
         self.grid.wall_rect(x=0, y=0, w=width, h=height)
 
-    def _add_grid_elements(self, width: int, height: int) -> None:
+    def _place_box_pickup_items(self) -> None:
+        """
+        Place a single package in the warehouse for the agent to pick up.
+        """
+        pickup_position_tuple_list: list[tuple[int, int]] = [
+            (1, 14),
+            (2, 2),
+            (4, 10),
+            (6, 7),
+            (8, 4),
+            (8, 14),
+            (11, 8),
+            (14, 2),
+        ]
+
+        for pickup_position_tuple in pickup_position_tuple_list:
+            pickup_x_coordinate, pickup_y_coordinate = pickup_position_tuple
+
+            self.pickup_object = Box(color="blue")
+            self.grid.set(pickup_x_coordinate, pickup_y_coordinate, self.pickup_object)
+
+    def _add_grid_elements(self, height: int) -> None:
         """
         Create a warehouse-style layout with vertical shelf aisles.
         Gaps allow the agent and obstacles to move between aisles.
@@ -199,7 +225,7 @@ class WareHouseEnv(MiniGridEnv):
         4. Check collision again
         5. Apply custom reward shaping
         """
-        previous_distance_to_goal: int = self._get_manhattan_distance_to_goal()
+        previous_distance_to_goal: int = self._get_manhattan_distance(position_tuple=self._pickup_position_tuple)
 
         observation, reward, is_terminated, is_truncated, info = super().step(action)
 
@@ -243,6 +269,7 @@ class WareHouseEnv(MiniGridEnv):
 
         # Case 4:
         #  (1) If the agent picks up an item
+        # self._add_agent_incentive_to_pick_up_package(reward=reward)
 
         # Case 5:
         #  (2) If the agent drops off the item at the correct location
@@ -257,9 +284,32 @@ class WareHouseEnv(MiniGridEnv):
 
         return observation, reward, is_terminated, is_truncated, info
 
+    def _add_agent_incentive_to_pick_up_package(self, reward: SupportsFloat) -> SupportsFloat:
+
+        if self._is_carrying_package is True:
+            return reward
+
+        if self._pickup_position_tuple is None:
+            return reward
+
+        agent_x_coordinate, agent_y_coordinate = self.agent_pos
+        pickup_x_coordinate, pickup_y_coordinate = self._pickup_position_tuple
+
+        current_distance_to_pickup: int = self._get_manhattan_distance(position_tuple=self._pickup_position_tuple)
+
+        previous_distance_to_pickup = abs(agent_x_coordinate - pickup_x_coordinate) + abs(
+            agent_y_coordinate - pickup_y_coordinate)
+
+        if current_distance_to_pickup < previous_distance_to_pickup:
+            reward += 0.05
+        else:
+            reward -= 0.02
+
+        return reward
+
     def _add_agent_incentive_towards_goal_state(self, reward: SupportsFloat,
                                                 previous_distance_to_goal: int) -> SupportsFloat:
-        current_distance_to_goal: int = self._get_manhattan_distance_to_goal()
+        current_distance_to_goal: int = self._get_manhattan_distance(position_tuple=self.goal_position_tuple)
 
         if current_distance_to_goal < previous_distance_to_goal:
             reward += 0.05
@@ -268,9 +318,9 @@ class WareHouseEnv(MiniGridEnv):
 
         return reward
 
-    def _get_manhattan_distance_to_goal(self) -> int:
+    def _get_manhattan_distance(self, position_tuple: tuple[int, int]) -> int:
         current_x_coordinate, current_y_coordinate = self.agent_pos
-        goal_x_coordinate, goal_y_coordinate = self.goal_position_tuple
+        goal_x_coordinate, goal_y_coordinate = position_tuple
 
         return abs(current_x_coordinate - goal_x_coordinate) + abs(current_y_coordinate - goal_y_coordinate)
 
