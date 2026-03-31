@@ -26,7 +26,7 @@ class WareHouseAgentPPO:
 
         self._learning_rate: float = 3e-4
         self._total_time_steps: int = 500
-        self._entropy_coefficient: float = 0.06
+        self._entropy_coefficient: float = 0.07
         self._time_steps_per_batch: int = 1_000
         self._num_updates_per_iteration: int = 5
         self._num_training_steps: int = 1_000_000

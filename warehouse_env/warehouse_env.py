@@ -15,7 +15,7 @@ from logger.logger import AppLogger
 class WareHouseEnv(MiniGridEnv):
     def __init__(
             self,
-            size: int = 16,
+            size: int = 10,
             agent_start_position_tuple: tuple[int, int] = (1, 1),
             agent_start_direction: int = 0,
             max_steps: int | None = None,
@@ -92,7 +92,7 @@ class WareHouseEnv(MiniGridEnv):
             # (1, 14),
             # (2, 2),
             # (4, 10),
-            (6, 7),
+            (4, 4),
             # (8, 4),
             # (8, 14),
             # (11, 8),
@@ -214,7 +214,7 @@ class WareHouseEnv(MiniGridEnv):
         reward = self._is_agent_carrying_package(reward=reward, action_int=action)
         # Case 3: agent reaches goal state
         if self._agent_reaches_goal_state() and self._is_carrying_package:
-            reward = 1
+            reward = 25
             is_terminated = True
             info["collision"] = False
             return observation, reward, is_terminated, is_truncated, info
@@ -322,9 +322,9 @@ class WareHouseEnv(MiniGridEnv):
                 agent_y_coordinate - pickup_y_coordinate)
 
             if current_distance_to_pickup < previous_distance_to_pickup:
-                reward += 0.25
+                reward += .10
             elif current_distance_to_pickup > previous_distance_to_pickup:
-                reward -= 0.05
+                reward -= .10
 
         return reward
 
@@ -355,9 +355,9 @@ class WareHouseEnv(MiniGridEnv):
         current_distance_to_goal: int = self._get_manhattan_distance(position_tuple=self._goal_position_tuple)
 
         if current_distance_to_goal < previous_distance_to_goal:
-            reward += 0.1
+            reward += 0.15
         elif current_distance_to_goal > previous_distance_to_goal:
-            reward -= 0.1
+            reward -= 0.15
 
         return reward
 
