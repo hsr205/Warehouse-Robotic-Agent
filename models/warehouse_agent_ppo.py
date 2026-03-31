@@ -38,7 +38,7 @@ class WareHouseAgentPPO:
         # self._action_dimensions = self._environment_obj.action_space.n
 
         # TODO: Remove after testing
-        self._action_dimensions = self._environment_obj.action_space = Discrete(3).n
+        self._action_dimensions = self._environment_obj.action_space = Discrete(4).n
 
         self._observation_dimensions = self._environment_obj.observation_space.get("direction").n
 
@@ -53,10 +53,6 @@ class WareHouseAgentPPO:
 
         self._critic_network_optimizer: Adam = Adam(params=self._critic_network.parameters(),
                                                     lr=self._learning_rate)
-
-        # NOTE: Standard deviation set to 0.5 arbitrarily.
-        self._covariance_variable = torch.full(size=(self._action_dimensions,), fill_value=0.5)
-        self._covariance_matrix = torch.diag(input=self._covariance_variable)
 
     def train_agent(self) -> None:
 
