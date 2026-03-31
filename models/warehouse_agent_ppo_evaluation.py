@@ -27,7 +27,7 @@ class WareHouseAgentPPOEvaluation:
         # self._action_dimensions = self._environment_obj.action_space.n
 
         # TODO: Remove after testing
-        self._action_dimensions = self._environment_obj.action_space = Discrete(3).n
+        self._action_dimensions = self._environment_obj.action_space = Discrete(4).n
 
         self._observation_dimensions = self._environment_obj.observation_space.get("direction").n
 
@@ -45,7 +45,9 @@ class WareHouseAgentPPOEvaluation:
     def evaluate_agent(self, num_episodes: int = 10) -> dict[str, int | float | list]:
 
         # TODO: Make the following more dynamic after testing
+        # checkpoint_path: Path = Path("model_weights/checkpoint_step_100_2026_03_31_14_11_15.pt")
         checkpoint_path: Path = Path("model_weights/")
+        # checkpoint_path: Path = Path("model_weights/")
         # checkpoint_path: Path = Path("model_weights/")
         # checkpoint_path: Path = Path("model_weights/")
         # checkpoint_path: Path = Path("model_weights/")
