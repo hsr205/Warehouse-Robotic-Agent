@@ -463,9 +463,9 @@ class WareHouseEnv(MiniGridEnv):
         current_distance_to_goal: int = self._get_manhattan_distance(position_tuple=self._goal_position_tuple)
 
         if current_distance_to_goal < previous_distance_to_goal:
-            reward += 0.2
+            reward += 0.5
         elif current_distance_to_goal > previous_distance_to_goal:
-            reward -= 0.2
+            reward -= 0.5
 
         return reward
 
