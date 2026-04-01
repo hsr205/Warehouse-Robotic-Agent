@@ -234,7 +234,7 @@ class WareHouseEnv(MiniGridEnv):
             return observation, reward, is_terminated, is_truncated, info
 
         if self._is_carrying_package:
-            reward = self._add_agent_incentive_to_face_goal_while_carrying(reward=reward)
+            # reward = self._add_agent_incentive_to_face_goal_while_carrying(reward=reward)
 
             reward = self._add_agent_incentive_towards_goal_state(
                 reward=reward,
