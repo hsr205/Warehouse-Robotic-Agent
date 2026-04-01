@@ -403,63 +403,63 @@ class WareHouseEnv(MiniGridEnv):
         return False
 
 
-def _add_agent_incentive_towards_goal_state(self, reward: SupportsFloat,
-                                            previous_distance_to_goal: int) -> SupportsFloat:
-    current_distance_to_goal: int = self._get_manhattan_distance(position_tuple=self._goal_position_tuple)
+    def _add_agent_incentive_towards_goal_state(self, reward: SupportsFloat,
+                                                previous_distance_to_goal: int) -> SupportsFloat:
+        current_distance_to_goal: int = self._get_manhattan_distance(position_tuple=self._goal_position_tuple)
 
-    if current_distance_to_goal < previous_distance_to_goal:
-        reward += 0.15
-    elif current_distance_to_goal > previous_distance_to_goal:
-        reward -= 0.15
+        if current_distance_to_goal < previous_distance_to_goal:
+            reward += 0.15
+        elif current_distance_to_goal > previous_distance_to_goal:
+            reward -= 0.15
 
-    return reward
-
-
-def _get_manhattan_distance(self, position_tuple: tuple[int, int]) -> int:
-    current_x_coordinate, current_y_coordinate = self.agent_pos
-    x_coordinate, y_coordinate = position_tuple
-
-    return abs(current_x_coordinate - x_coordinate) + abs(current_y_coordinate - y_coordinate)
+        return reward
 
 
-def randomly_navigate_custom_grid_world(self) -> None:
-    environment_obj: Env = WareHouseEnv(render_mode="human")
-    observation_dict, info_dict = environment_obj.reset(seed=42)
+    def _get_manhattan_distance(self, position_tuple: tuple[int, int]) -> int:
+        current_x_coordinate, current_y_coordinate = self.agent_pos
+        x_coordinate, y_coordinate = position_tuple
 
-    for _ in range(300):
-        action_int = environment_obj.action_space.sample()
-        observation_dict, reward_float, terminated_bool, truncated_bool, info_dict = environment_obj.step(
-            action_int
-        )
-
-        self._logger.info(
-            f"reward={reward_float:.2f}, "
-            f"terminated={terminated_bool}, "
-            f"truncated={truncated_bool}, "
-            f"info={info_dict}"
-        )
-
-        time.sleep(0.15)
-
-        if terminated_bool or truncated_bool:
-            observation_dict, info_dict = environment_obj.reset()
-
-    environment_obj.close()
+        return abs(current_x_coordinate - x_coordinate) + abs(current_y_coordinate - y_coordinate)
 
 
-def randomly_navigate_empty_grid_world(self) -> None:
-    environment_obj: Env = gym.make(id="MiniGrid-Empty-16x16-v0", render_mode="human")
-    observation_dict, info_dict = environment_obj.reset(seed=42)
+    def randomly_navigate_custom_grid_world(self) -> None:
+        environment_obj: Env = WareHouseEnv(render_mode="human")
+        observation_dict, info_dict = environment_obj.reset(seed=42)
 
-    for _ in range(200):
-        action_int = environment_obj.action_space.sample()
-        observation_dict, reward_float, terminated_bool, truncated_bool, info_dict = environment_obj.step(
-            action_int
-        )
+        for _ in range(300):
+            action_int = environment_obj.action_space.sample()
+            observation_dict, reward_float, terminated_bool, truncated_bool, info_dict = environment_obj.step(
+                action_int
+            )
 
-        time.sleep(0.1)
+            self._logger.info(
+                f"reward={reward_float:.2f}, "
+                f"terminated={terminated_bool}, "
+                f"truncated={truncated_bool}, "
+                f"info={info_dict}"
+            )
 
-        if terminated_bool or truncated_bool:
-            observation_dict, info_dict = environment_obj.reset()
+            time.sleep(0.15)
 
-    environment_obj.close()
+            if terminated_bool or truncated_bool:
+                observation_dict, info_dict = environment_obj.reset()
+
+        environment_obj.close()
+
+
+    def randomly_navigate_empty_grid_world(self) -> None:
+        environment_obj: Env = gym.make(id="MiniGrid-Empty-16x16-v0", render_mode="human")
+        observation_dict, info_dict = environment_obj.reset(seed=42)
+
+        for _ in range(200):
+            action_int = environment_obj.action_space.sample()
+            observation_dict, reward_float, terminated_bool, truncated_bool, info_dict = environment_obj.step(
+                action_int
+            )
+
+            time.sleep(0.1)
+
+            if terminated_bool or truncated_bool:
+                observation_dict, info_dict = environment_obj.reset()
+
+        environment_obj.close()
