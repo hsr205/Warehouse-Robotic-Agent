@@ -54,6 +54,11 @@ class WareHouseEnv(MiniGridEnv):
             **kwargs,
         )
 
+    def reset(self, *, seed=None, options=None):
+        self._is_carrying_package = False
+        observation, info = super().reset(seed=seed, options=options)
+        return observation, info
+
     @staticmethod
     def _gen_mission() -> str:
         return "Navigate the Warehouse -> Reach The Goal"
@@ -175,23 +180,29 @@ class WareHouseEnv(MiniGridEnv):
 
         observation, reward, is_terminated, is_truncated, info = super().step(action)
 
-        # # NOTE: Penalize trying to move forward into wall/blocked cell
-        # if self._is_forward_collision(action=action, previous_agent_pos_tuple=previous_agent_position_tuple):
-        #     reward -= 0.05
-        #     info["is_forward_collision"] = True
-        # else:
-        #     info["is_forward_collision"] = False
+        # Case 1: If the agent moves into the goal state and is not carrying a package
 
-        current_agent_position_tuple: tuple[int, int] = self.agent_pos
+        is_agent_allowed_in_goal_state: bool = self.agent_pos == self._goal_position_tuple and not self._is_carrying_package
+
+        if is_agent_allowed_in_goal_state:
+            self.agent_pos = previous_agent_position_tuple
+            reward = -0.50
+            is_terminated = False
+            is_truncated = False
+            observation = self.gen_obs()
+            info["blocked_goal_without_package"] = True
+        else:
+            info["blocked_goal_without_package"] = False
 
         # Small step penalty to encourage efficiency
         reward += self._step_penalty
 
-        # Case 1: agent moves into obstacle
+        # Case 2: agent moves into obstacle
         if self._agent_hits_obstacle():
             reward = -1.0
             is_terminated = True
             info["collision"] = True
+            self._is_carrying_package = False
             return observation, reward, is_terminated, is_truncated, info
 
         # If goal already reached, do not move obstacles
@@ -204,19 +215,21 @@ class WareHouseEnv(MiniGridEnv):
         # Refresh observation after obstacle movement
         observation = self.gen_obs()
 
-        # Case 2: obstacle moves into agent
+        # Case 3: obstacle moves into agent
         if self._agent_hits_obstacle():
             reward = -1.0
             is_terminated = True
             info["collision"] = True
+            self._is_carrying_package = False
             return observation, reward, is_terminated, is_truncated, info
 
         reward = self._is_agent_carrying_package(reward=reward, action_int=action)
-        # Case 3: agent reaches goal state
+        # Case 4: agent reaches goal state
         if self._agent_reaches_goal_state() and self._is_carrying_package:
             reward = 25
             is_terminated = True
             info["collision"] = False
+            self._is_carrying_package = False
             return observation, reward, is_terminated, is_truncated, info
 
         reward = self._add_agent_incentive_to_move_toward_package(reward=reward,
@@ -322,9 +335,9 @@ class WareHouseEnv(MiniGridEnv):
                 agent_y_coordinate - pickup_y_coordinate)
 
             if current_distance_to_pickup < previous_distance_to_pickup:
-                reward += .10
+                reward += 1.0
             elif current_distance_to_pickup > previous_distance_to_pickup:
-                reward -= .10
+                reward -= 1.0
 
         return reward
 
@@ -344,7 +357,7 @@ class WareHouseEnv(MiniGridEnv):
 
                 self.grid.set(i=package_x_coordinate, j=package_y_coordinate, v=None)
 
-                reward += 5.0
+                reward += 10.0
 
                 return reward
 
