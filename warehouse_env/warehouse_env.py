@@ -347,9 +347,10 @@ class WareHouseEnv(MiniGridEnv):
             # TODO: In the event of multiple packages this needs to change -> self._package_position_list[0]
 
             is_action_pickup: bool = action_int == 3
-            is_agent_at_package_location: bool = self.agent_pos == self._package_position_list[0]
 
-            if is_action_pickup and is_agent_at_package_location:
+            is_agent_in_valid_pickup_location: bool = self._is_agent_in_valid_pickup_location()
+
+            if is_action_pickup and is_agent_in_valid_pickup_location:
                 self._is_carrying_package = True
                 package_x_coordinate: int = self._package_position_list[0][0]
                 package_y_coordinate: int = self._package_position_list[0][1]
@@ -360,72 +361,105 @@ class WareHouseEnv(MiniGridEnv):
 
                 return reward
 
-            if not is_action_pickup and is_agent_at_package_location:
+            if not is_action_pickup and is_agent_in_valid_pickup_location:
                 reward -= 0.25
 
                 return reward
 
-            if is_action_pickup and not is_agent_at_package_location:
+            if is_action_pickup and not is_agent_in_valid_pickup_location:
                 reward -= 0.2
 
                 return reward
 
         return reward
 
-    def _add_agent_incentive_towards_goal_state(self, reward: SupportsFloat,
-                                                previous_distance_to_goal: int) -> SupportsFloat:
-        current_distance_to_goal: int = self._get_manhattan_distance(position_tuple=self._goal_position_tuple)
+    def _is_agent_in_valid_pickup_location(self) -> bool:
+        agent_x_coordinate: int = self.agent_pos[0]
+        agent_y_coordinate: int = self.agent_pos[1]
 
-        if current_distance_to_goal < previous_distance_to_goal:
-            reward += 0.15
-        elif current_distance_to_goal > previous_distance_to_goal:
-            reward -= 0.15
+        package_x_coordinate: int = self._package_position_list[0][0]
+        package_y_coordinate: int = self._package_position_list[0][1]
 
-        return reward
+        is_agent_direction_right: bool = self.agent_dir == 0
+        is_agent_direction_down: bool = self.agent_dir == 1
+        is_agent_direction_left: bool = self.agent_dir == 2
+        is_agent_direction_up: bool = self.agent_dir == 3
 
-    def _get_manhattan_distance(self, position_tuple: tuple[int, int]) -> int:
-        current_x_coordinate, current_y_coordinate = self.agent_pos
-        x_coordinate, y_coordinate = position_tuple
+        is_agent_and_package_on_same_row: bool = agent_y_coordinate == package_y_coordinate
+        is_agent_and_package_on_same_column: bool = agent_x_coordinate == package_x_coordinate
 
-        return abs(current_x_coordinate - x_coordinate) + abs(current_y_coordinate - y_coordinate)
+        if is_agent_direction_down and is_agent_and_package_on_same_column and agent_y_coordinate + 1 == package_y_coordinate:
+            return True
 
-    def randomly_navigate_custom_grid_world(self) -> None:
-        environment_obj: Env = WareHouseEnv(render_mode="human")
-        observation_dict, info_dict = environment_obj.reset(seed=42)
+        if is_agent_direction_right and is_agent_and_package_on_same_row and agent_x_coordinate + 1 == package_x_coordinate:
+            return True
 
-        for _ in range(300):
-            action_int = environment_obj.action_space.sample()
-            observation_dict, reward_float, terminated_bool, truncated_bool, info_dict = environment_obj.step(
-                action_int
-            )
+        if is_agent_direction_left and is_agent_and_package_on_same_row and agent_x_coordinate - 1 == package_x_coordinate:
+            return True
 
-            self._logger.info(
-                f"reward={reward_float:.2f}, "
-                f"terminated={terminated_bool}, "
-                f"truncated={truncated_bool}, "
-                f"info={info_dict}"
-            )
+        if is_agent_direction_up and is_agent_and_package_on_same_column and agent_y_coordinate - 1 == package_y_coordinate:
+            return True
 
-            time.sleep(0.15)
+        return False
 
-            if terminated_bool or truncated_bool:
-                observation_dict, info_dict = environment_obj.reset()
 
-        environment_obj.close()
+def _add_agent_incentive_towards_goal_state(self, reward: SupportsFloat,
+                                            previous_distance_to_goal: int) -> SupportsFloat:
+    current_distance_to_goal: int = self._get_manhattan_distance(position_tuple=self._goal_position_tuple)
 
-    def randomly_navigate_empty_grid_world(self) -> None:
-        environment_obj: Env = gym.make(id="MiniGrid-Empty-16x16-v0", render_mode="human")
-        observation_dict, info_dict = environment_obj.reset(seed=42)
+    if current_distance_to_goal < previous_distance_to_goal:
+        reward += 0.15
+    elif current_distance_to_goal > previous_distance_to_goal:
+        reward -= 0.15
 
-        for _ in range(200):
-            action_int = environment_obj.action_space.sample()
-            observation_dict, reward_float, terminated_bool, truncated_bool, info_dict = environment_obj.step(
-                action_int
-            )
+    return reward
 
-            time.sleep(0.1)
 
-            if terminated_bool or truncated_bool:
-                observation_dict, info_dict = environment_obj.reset()
+def _get_manhattan_distance(self, position_tuple: tuple[int, int]) -> int:
+    current_x_coordinate, current_y_coordinate = self.agent_pos
+    x_coordinate, y_coordinate = position_tuple
 
-        environment_obj.close()
+    return abs(current_x_coordinate - x_coordinate) + abs(current_y_coordinate - y_coordinate)
+
+
+def randomly_navigate_custom_grid_world(self) -> None:
+    environment_obj: Env = WareHouseEnv(render_mode="human")
+    observation_dict, info_dict = environment_obj.reset(seed=42)
+
+    for _ in range(300):
+        action_int = environment_obj.action_space.sample()
+        observation_dict, reward_float, terminated_bool, truncated_bool, info_dict = environment_obj.step(
+            action_int
+        )
+
+        self._logger.info(
+            f"reward={reward_float:.2f}, "
+            f"terminated={terminated_bool}, "
+            f"truncated={truncated_bool}, "
+            f"info={info_dict}"
+        )
+
+        time.sleep(0.15)
+
+        if terminated_bool or truncated_bool:
+            observation_dict, info_dict = environment_obj.reset()
+
+    environment_obj.close()
+
+
+def randomly_navigate_empty_grid_world(self) -> None:
+    environment_obj: Env = gym.make(id="MiniGrid-Empty-16x16-v0", render_mode="human")
+    observation_dict, info_dict = environment_obj.reset(seed=42)
+
+    for _ in range(200):
+        action_int = environment_obj.action_space.sample()
+        observation_dict, reward_float, terminated_bool, truncated_bool, info_dict = environment_obj.step(
+            action_int
+        )
+
+        time.sleep(0.1)
+
+        if terminated_bool or truncated_bool:
+            observation_dict, info_dict = environment_obj.reset()
+
+    environment_obj.close()
