@@ -164,7 +164,7 @@ class WareHouseEnv(MiniGridEnv):
         else:
             self.place_agent()
 
-    def step(self, action) -> tuple:
+    def step(self, action_int: int) -> tuple:
         """
         One environment step:
         1. Move agent using MiniGrid logic
@@ -178,10 +178,9 @@ class WareHouseEnv(MiniGridEnv):
 
         previous_agent_position_tuple: tuple[int, int] = self.agent_pos
 
-        observation, reward, is_terminated, is_truncated, info = super().step(action)
+        observation, reward, is_terminated, is_truncated, info = super().step(action_int)
 
         # Case 1: If the agent moves into the goal state and is not carrying a package
-
         is_agent_allowed_in_goal_state: bool = self.agent_pos == self._goal_position_tuple and not self._is_carrying_package
 
         if is_agent_allowed_in_goal_state:
@@ -223,10 +222,10 @@ class WareHouseEnv(MiniGridEnv):
             self._is_carrying_package = False
             return observation, reward, is_terminated, is_truncated, info
 
-        reward = self._is_agent_carrying_package(reward=reward, action_int=action)
+        reward = self._agent_incentive_to_pickup_package(reward=reward, action_int=action_int)
         # Case 4: agent reaches goal state
         if self._agent_reaches_goal_state() and self._is_carrying_package:
-            reward = 25
+            reward = 30
             is_terminated = True
             info["collision"] = False
             self._is_carrying_package = False
@@ -335,13 +334,13 @@ class WareHouseEnv(MiniGridEnv):
                 agent_y_coordinate - pickup_y_coordinate)
 
             if current_distance_to_pickup < previous_distance_to_pickup:
-                reward += 1.0
+                reward += 0.2
             elif current_distance_to_pickup > previous_distance_to_pickup:
-                reward -= 1.0
+                reward -= 0.2
 
         return reward
 
-    def _is_agent_carrying_package(self, reward: SupportsFloat, action_int: int) -> SupportsFloat:
+    def _agent_incentive_to_pickup_package(self, reward: SupportsFloat, action_int: int) -> SupportsFloat:
 
         if not self._is_carrying_package:
 
@@ -357,7 +356,17 @@ class WareHouseEnv(MiniGridEnv):
 
                 self.grid.set(i=package_x_coordinate, j=package_y_coordinate, v=None)
 
-                reward += 10.0
+                reward += 15.0
+
+                return reward
+
+            if not is_action_pickup and is_agent_at_package_location:
+                reward -= 0.25
+
+                return reward
+
+            if is_action_pickup and not is_agent_at_package_location:
+                reward -= 0.2
 
                 return reward
 
