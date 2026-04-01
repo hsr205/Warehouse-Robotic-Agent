@@ -178,25 +178,14 @@ class WareHouseEnv(MiniGridEnv):
 
         previous_agent_position_tuple: tuple[int, int] = self.agent_pos
 
+        was_carrying_package_before_step: bool = self._is_carrying_package
+
         observation, reward, is_terminated, is_truncated, info = super().step(action_int)
-
-        # Case 1: If the agent moves into the goal state and is not carrying a package
-        is_agent_allowed_in_goal_state: bool = self.agent_pos == self._goal_position_tuple and not self._is_carrying_package
-
-        if is_agent_allowed_in_goal_state:
-            self.agent_pos = previous_agent_position_tuple
-            reward = -0.50
-            is_terminated = False
-            is_truncated = False
-            observation = self.gen_obs()
-            info["blocked_goal_without_package"] = True
-        else:
-            info["blocked_goal_without_package"] = False
 
         # Small step penalty to encourage efficiency
         reward += self._step_penalty
 
-        # Case 2: agent moves into obstacle
+        # Case 1: agent moves into obstacle
         if self._agent_hits_obstacle():
             reward = -1.0
             is_terminated = True
@@ -214,13 +203,26 @@ class WareHouseEnv(MiniGridEnv):
         # Refresh observation after obstacle movement
         observation = self.gen_obs()
 
-        # Case 3: obstacle moves into agent
+        # Case 2: obstacle moves into agent
         if self._agent_hits_obstacle():
             reward = -1.0
             is_terminated = True
             info["collision"] = True
             self._is_carrying_package = False
             return observation, reward, is_terminated, is_truncated, info
+
+        # Case 3: If the agent moves into the goal state and is not carrying a package
+        is_agent_allowed_in_goal_state: bool = self.agent_pos == self._goal_position_tuple and not self._is_carrying_package
+
+        if is_agent_allowed_in_goal_state:
+            self.agent_pos = previous_agent_position_tuple
+            reward = -0.50
+            is_terminated = False
+            is_truncated = False
+            observation = self.gen_obs()
+            info["blocked_goal_without_package"] = True
+        else:
+            info["blocked_goal_without_package"] = False
 
         reward = self._agent_incentive_to_pickup_package(reward=reward, action_int=action_int)
         # Case 4: agent reaches goal state
@@ -231,16 +233,65 @@ class WareHouseEnv(MiniGridEnv):
             self._is_carrying_package = False
             return observation, reward, is_terminated, is_truncated, info
 
-        reward = self._add_agent_incentive_to_move_toward_package(reward=reward,
-                                                                  previous_agent_position_tuple=previous_agent_position_tuple)
-
         if self._is_carrying_package:
-            reward = self._add_agent_incentive_towards_goal_state(reward=reward,
-                                                                  previous_distance_to_goal=previous_distance_to_goal)
+            reward = self._add_agent_incentive_to_face_goal_while_carrying(reward=reward)
+
+            reward = self._add_agent_incentive_towards_goal_state(
+                reward=reward,
+                previous_distance_to_goal=previous_distance_to_goal,
+                previous_agent_position_tuple=previous_agent_position_tuple,
+            )
+
+            if not was_carrying_package_before_step:
+                reward += 0.25
+        else:
+            reward = self._add_agent_incentive_to_move_toward_package(
+                reward=reward,
+                previous_agent_position_tuple=previous_agent_position_tuple,
+            )
 
         info["collision"] = False
 
         return observation, reward, is_terminated, is_truncated, info
+
+    def _add_agent_incentive_to_face_goal_while_carrying(self, reward: SupportsFloat) -> SupportsFloat:
+
+        if not self._is_carrying_package:
+            return reward
+
+        current_x_coordinate: int = self.agent_pos[0]
+        current_y_coordinate: int = self.agent_pos[1]
+
+        goal_x_coordinate: int = self._goal_position_tuple[0]
+        goal_y_coordinate: int = self._goal_position_tuple[1]
+
+        front_x_coordinate: int = current_x_coordinate
+        front_y_coordinate: int = current_y_coordinate
+
+        if self.agent_dir == 0:
+            front_x_coordinate += 1
+        elif self.agent_dir == 1:
+            front_y_coordinate += 1
+        elif self.agent_dir == 2:
+            front_x_coordinate -= 1
+        else:
+            front_y_coordinate -= 1
+
+        if front_x_coordinate <= 0 or front_y_coordinate <= 0:
+            return reward
+
+        if front_x_coordinate >= self.width - 1 or front_y_coordinate >= self.height - 1:
+            return reward
+
+        current_distance_to_goal: int = abs(current_x_coordinate - goal_x_coordinate) + abs(
+            current_y_coordinate - goal_y_coordinate)
+        front_cell_distance_to_goal: int = abs(front_x_coordinate - goal_x_coordinate) + abs(
+            front_y_coordinate - goal_y_coordinate)
+
+        if front_cell_distance_to_goal < current_distance_to_goal:
+            reward += 0.05
+
+        return reward
 
     def _move_obstacles(self) -> None:
         """
@@ -402,25 +453,27 @@ class WareHouseEnv(MiniGridEnv):
 
         return False
 
-
     def _add_agent_incentive_towards_goal_state(self, reward: SupportsFloat,
-                                                previous_distance_to_goal: int) -> SupportsFloat:
+                                                previous_distance_to_goal: int,
+                                                previous_agent_position_tuple:tuple[int,int]) -> SupportsFloat:
+
+        if self.agent_pos == previous_agent_position_tuple:
+            return reward
+
         current_distance_to_goal: int = self._get_manhattan_distance(position_tuple=self._goal_position_tuple)
 
         if current_distance_to_goal < previous_distance_to_goal:
-            reward += 0.15
+            reward += 0.2
         elif current_distance_to_goal > previous_distance_to_goal:
-            reward -= 0.15
+            reward -= 0.2
 
         return reward
-
 
     def _get_manhattan_distance(self, position_tuple: tuple[int, int]) -> int:
         current_x_coordinate, current_y_coordinate = self.agent_pos
         x_coordinate, y_coordinate = position_tuple
 
         return abs(current_x_coordinate - x_coordinate) + abs(current_y_coordinate - y_coordinate)
-
 
     def randomly_navigate_custom_grid_world(self) -> None:
         environment_obj: Env = WareHouseEnv(render_mode="human")
@@ -445,7 +498,6 @@ class WareHouseEnv(MiniGridEnv):
                 observation_dict, info_dict = environment_obj.reset()
 
         environment_obj.close()
-
 
     def randomly_navigate_empty_grid_world(self) -> None:
         environment_obj: Env = gym.make(id="MiniGrid-Empty-16x16-v0", render_mode="human")
