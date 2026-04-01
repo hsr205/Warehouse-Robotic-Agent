@@ -45,11 +45,7 @@ class WareHouseAgentPPOEvaluation:
     def evaluate_agent(self, num_episodes: int = 10) -> dict[str, int | float | list]:
 
         # TODO: Make the following more dynamic after testing
-        checkpoint_path: Path = Path("model_weights/")
-        # checkpoint_path: Path = Path("model_weights/")
-        # checkpoint_path: Path = Path("model_weights/")
-        # checkpoint_path: Path = Path("model_weights/")
-        # checkpoint_path: Path = Path("model_weights/")
+        checkpoint_path: Path = Path("model_weights/checkpoint_step_1000_2026_03_31_22_18_04.pt")
         # checkpoint_path: Path = Path("model_weights/")
 
 
