@@ -25,9 +25,9 @@ class WareHouseAgentPPO:
         self._gamma: float = 0.95
 
         self._learning_rate: float = 3e-4
-        self._total_time_steps: int = 1_000
+        self._total_time_steps: int = 1_250
         self._entropy_coefficient: float = 0.075
-        self._time_steps_per_batch: int = 1_000
+        self._time_steps_per_batch: int = 1_250
         self._num_updates_per_iteration: int = 5
         self._num_training_steps: int = 1_000_000
         self._max_time_steps_per_episode: int = 2_000
