@@ -25,12 +25,11 @@ class WareHouseAgentPPO:
         self._gamma: float = 0.95
 
         self._learning_rate: float = 3e-4
-        self._total_time_steps: int = 1_250
         self._entropy_coefficient: float = 0.075
-        self._time_steps_per_batch: int = 1_250
-        self._num_updates_per_iteration: int = 5
-        self._num_training_steps: int = 1_000_000
-        self._max_time_steps_per_episode: int = 2_000
+        self._num_updates_per_iteration: int = 10
+        self._max_time_steps_per_episode: int = 100
+        self._total_actions_taken_during_training: int = 100_000
+        self._time_steps_per_batch_before_policy_update: int = 4_000
         self._environment_obj: WareHouseEnv = WareHouseEnv(render_mode=None)
         self._logger = AppLogger.get_logger(self.__class__.__name__)
         # # TODO: Uncomment after testing
@@ -56,9 +55,9 @@ class WareHouseAgentPPO:
     def train_agent(self) -> None:
 
         current_training_iteration: int = 0
-        progress_bar: tqdm = tqdm(total=self._total_time_steps, desc="Training Warehouse PPO Agent")
+        progress_bar: tqdm = tqdm(total=self._total_actions_taken_during_training, desc="Training Warehouse PPO Agent")
 
-        while current_training_iteration <= self._total_time_steps:
+        while current_training_iteration <= self._total_actions_taken_during_training:
 
             # self._entropy_coefficient = max(0.005, self._entropy_coefficient * 0.995)
 
@@ -165,7 +164,7 @@ class WareHouseAgentPPO:
         batch_rewards_list: list[list[float]] = []
         batch_log_probability_list: list[float] = []
 
-        while current_time_step < self._time_steps_per_batch:
+        while current_time_step < self._time_steps_per_batch_before_policy_update:
 
             episode_length: int = 0
             episode_rewards: list[float] = []
@@ -173,7 +172,7 @@ class WareHouseAgentPPO:
 
             for _ in range(0, self._max_time_steps_per_episode):
 
-                if current_time_step >= self._time_steps_per_batch:
+                if current_time_step >= self._time_steps_per_batch_before_policy_update:
                     break
 
                 batch_observation_list.append(observation_dict)
