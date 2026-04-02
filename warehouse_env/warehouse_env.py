@@ -188,11 +188,11 @@ class WareHouseEnv(MiniGridEnv):
         # Case 1: agent moves into obstacle
         if self._agent_hits_obstacle():
             reward = -2.0
-            # is_terminated = True
-            is_terminated = False
+            is_terminated = True
+            # is_terminated = False
             info["collision"] = True
-            # self._is_carrying_package = False
-            # return observation, reward, is_terminated, is_truncated, info
+            self._is_carrying_package = False
+            return observation, reward, is_terminated, is_truncated, info
 
         # If goal already reached, do not move obstacles
         if is_terminated or is_truncated:
@@ -207,11 +207,11 @@ class WareHouseEnv(MiniGridEnv):
         # Case 2: obstacle moves into agent
         if self._agent_hits_obstacle():
             reward = -2.0
-            # is_terminated = True
-            is_terminated = False
+            is_terminated = True
+            # is_terminated = False
             info["collision"] = True
-            # self._is_carrying_package = False
-            # return observation, reward, is_terminated, is_truncated, info
+            self._is_carrying_package = False
+            return observation, reward, is_terminated, is_truncated, info
 
         # Case 3: If the agent moves into the goal state and is not carrying a package
         is_agent_allowed_in_goal_state: bool = self.agent_pos == self._goal_position_tuple and not self._is_carrying_package
