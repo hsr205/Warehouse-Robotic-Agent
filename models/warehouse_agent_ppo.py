@@ -1,4 +1,3 @@
-import time
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
@@ -53,7 +52,7 @@ class WareHouseAgentPPO:
 
     def train_agent(self) -> None:
 
-        start_time: time = time.time()
+        start_time: datetime = datetime.now()
         current_training_iteration: int = 0
         progress_bar: tqdm = tqdm(total=self._total_actions_taken_during_training, desc="Training Warehouse PPO Agent")
 
@@ -293,7 +292,7 @@ class WareHouseAgentPPO:
 
         return action_tensor.item(), log_probabilities_tensor.item()
 
-    def _save_checkpoint(self, current_training_iteration: int, start_time: time) -> None:
+    def _save_checkpoint(self, current_training_iteration: int, start_time: datetime) -> None:
 
         file_path: Path = self._get_file_path(current_training_iteration=current_training_iteration)
 
@@ -309,7 +308,7 @@ class WareHouseAgentPPO:
 
         self._display_save_checkpoint_logger_statements(file_path=file_path, start_time=start_time)
 
-    def _display_save_checkpoint_logger_statements(self, file_path: Path, start_time: time) -> None:
+    def _display_save_checkpoint_logger_statements(self, file_path: Path, start_time: datetime) -> None:
         self._logger.info("\n")
         self._logger.info("=" * 100)
         now = datetime.now()
