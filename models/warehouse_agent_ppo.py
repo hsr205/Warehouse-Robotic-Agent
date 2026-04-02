@@ -39,8 +39,6 @@ class WareHouseAgentPPO:
         # TODO: Remove after testing
         self._action_dimensions = self._environment_obj.action_space = Discrete(4).n
 
-        self._observation_dimensions = self._environment_obj.observation_space.get("direction").n
-
         self._device = self._get_device()
 
         self._actor_network: ActorNetwork = ActorNetwork(output_dimensions=self._action_dimensions,
