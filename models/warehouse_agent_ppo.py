@@ -1,3 +1,4 @@
+import time
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
@@ -54,6 +55,7 @@ class WareHouseAgentPPO:
 
     def train_agent(self) -> None:
 
+        start_time: time = time.time()
         current_training_iteration: int = 0
         progress_bar: tqdm = tqdm(total=self._total_actions_taken_during_training, desc="Training Warehouse PPO Agent")
 
@@ -86,6 +88,10 @@ class WareHouseAgentPPO:
 
             actor_network_loss_tensor: Tensor | None = None
             critic_network_loss_tensor: Tensor | None = None
+
+            current_time: time = time.time()
+
+            self._display_time_elapsed(start_time=start_time, current_time=current_time)
 
             for _ in range(0, self._num_updates_per_iteration):
                 v_tensor, current_log_probabilities_tensor, entropy_tensor = self._evaluate_agent(
@@ -137,6 +143,13 @@ class WareHouseAgentPPO:
             current_training_iteration += 1
 
         progress_bar.close()
+
+    def _display_time_elapsed(self, start_time: time, current_time: time) -> None:
+        # NOTE: 300 stands for 5 minutes
+        if (current_time - start_time) >= 300:
+            now = datetime.now()
+            formatted_time = now.strftime("%b-%d, %H:%M:%S")
+            self._logger.info(f"Current Time: {formatted_time}")
 
     def _evaluate_agent(self, batch_observation_tensor: Tensor, batch_actions_tensor: Tensor) -> tuple[
         Tensor, Tensor, Tensor]:
