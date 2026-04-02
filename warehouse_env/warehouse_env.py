@@ -75,7 +75,7 @@ class WareHouseEnv(MiniGridEnv):
             self.put_obj(Goal(), *self._goal_position_tuple)
 
             # Place dynamic obstacles
-            # self._place_dynamic_obstacles()
+            self._place_dynamic_obstacles()
 
             # Place agent
             self._place_agent_at_starting_position()
