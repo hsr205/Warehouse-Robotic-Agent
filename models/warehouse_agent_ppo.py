@@ -61,7 +61,9 @@ class WareHouseAgentPPO:
 
             # self._entropy_coefficient = max(0.005, self._entropy_coefficient * 0.995)
 
-            if current_training_iteration > 0 and current_training_iteration % 100 == 0:
+            is_valid_save_point: bool = current_training_iteration > 0 and current_training_iteration % 200 == 0 or current_training_iteration == self._total_actions_taken_during_training
+
+            if is_valid_save_point:
                 self._save_checkpoint(current_training_iteration=current_training_iteration)
 
             batch_observation_tensor, batch_actions_tensor, batch_rewards_tensor, batch_length_tensor, batch_log_probability_tensor = self._rollout()
