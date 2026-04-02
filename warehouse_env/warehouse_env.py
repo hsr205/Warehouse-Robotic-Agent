@@ -124,9 +124,9 @@ class WareHouseEnv(MiniGridEnv):
         for column_num in shelf_aisle_columns_list:
 
             for row_num in range(1, height - 1):
-                is_row_first_or_last: bool = row_num == 1 or row_num == height - 2
-                if is_row_first_or_last:
-                    continue
+                # is_row_first_or_last: bool = row_num == 1 or row_num == height - 2
+                # if row_num == 1:
+                #     continue
                 if row_num not in agent_crossing_rows_list:
                     self.grid.set(i=column_num, j=row_num, v=Wall())
 
@@ -432,7 +432,7 @@ class WareHouseEnv(MiniGridEnv):
         current_distance_to_goal: int = self._get_manhattan_distance(position_tuple=self._goal_position_tuple)
 
         if current_distance_to_goal < previous_distance_to_goal:
-            reward += 2.0
+            reward += 3.0
         elif current_distance_to_goal > previous_distance_to_goal:
             reward -= 1.5
 
