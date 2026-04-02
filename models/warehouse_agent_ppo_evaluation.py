@@ -1,7 +1,6 @@
 import time
 from collections import OrderedDict
 from pathlib import Path
-from typing import SupportsFloat
 
 import numpy as np
 import torch
@@ -14,7 +13,6 @@ from tqdm import tqdm
 from logger.logger import AppLogger
 from models.actor_network import ActorNetwork
 from models.critic_network import CriticNetwork
-from utils.constants import Constants
 from warehouse_env.warehouse_env import WareHouseEnv
 
 
@@ -44,7 +42,7 @@ class WareHouseAgentPPOEvaluation:
 
     def evaluate_agent(self, num_episodes: int = 10) -> list[dict[str, int | float | list]]:
 
-        num_seconds: int = 5
+        num_seconds: int = 7
         results_list: list[dict[str, int | float | list]] = []
         checkpoint_file_paths_list: list[Path] = self._get_all_checkpoint_file_paths_list()
 
@@ -81,14 +79,14 @@ class WareHouseAgentPPOEvaluation:
                         observation_dict=observation_dict,
                     )
 
-                    self._logger.info(f"Episode Num = {episode_length}")
-
-                    self._logger.info("=" * 100)
-
-                    self._logger.info(
-                        f"Evaluation Action taken: {Constants.ACTION_SPACE_MAPPING_DICT.get(action_int, "")}")
-
-                    self._logger.info("=" * 100)
+                    # self._logger.info(f"Episode Num = {episode_length}")
+                    #
+                    # self._logger.info("=" * 100)
+                    #
+                    # self._logger.info(
+                    #     f"Evaluation Action taken: {Constants.ACTION_SPACE_MAPPING_DICT.get(action_int, "")}")
+                    #
+                    # self._logger.info("=" * 100)
 
                     # TODO: Add after testing
                     # observation_dict, reward, is_terminated, is_truncated, info_dict = self._environment_obj.step(
@@ -102,10 +100,10 @@ class WareHouseAgentPPOEvaluation:
 
                     is_done = is_terminated or is_truncated
 
-                    self._logger.info(
-                        f"Reward: {reward} -> Is Terminated: {is_terminated} -> Is Truncated: {is_truncated} -> Info Dict: {info_dict} -> Is Done: {is_done}")
-
-                    self._logger.info("=" * 100)
+                    # self._logger.info(
+                    #     f"Reward: {reward} -> Is Terminated: {is_terminated} -> Is Truncated: {is_truncated} -> Info Dict: {info_dict} -> Is Done: {is_done}")
+                    #
+                    # self._logger.info("=" * 100)
 
                     episode_return += reward
                     episode_length += 1
@@ -129,34 +127,6 @@ class WareHouseAgentPPOEvaluation:
             results_list.append(results_dict)
 
         return results_list
-
-    def _evaluate_for_fixed_time(self, reward: SupportsFloat, duration_seconds: int = 10) -> dict:
-
-        start_time: float = time.time()
-
-        episode_count: int = 0
-        total_reward: float = 0.0
-
-        while True:
-
-            current_time: float = time.time()
-
-            if current_time - start_time >= duration_seconds:
-                break
-
-            total_reward += reward
-            episode_count += 1
-
-        average_reward: float = 0.0
-
-        if episode_count > 0:
-            average_reward = total_reward / episode_count
-
-        return {
-            "episodes_run": episode_count,
-            "total_reward": total_reward,
-            "average_reward": average_reward
-        }
 
     def _get_all_checkpoint_file_paths_list(self) -> list[Path]:
 
