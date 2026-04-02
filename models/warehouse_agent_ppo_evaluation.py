@@ -74,6 +74,7 @@ class WareHouseAgentPPOEvaluation:
 
                 while not is_done:
 
+                    # TODO: Remove after testing
                     current_time: float = time.time()
                     if current_time - start_time >= num_seconds:
                         break
@@ -91,11 +92,12 @@ class WareHouseAgentPPOEvaluation:
 
                     self._logger.info("=" * 100)
 
-                    # TODO: Remove after testing
+                    # TODO: Add after testing
                     # observation_dict, reward, is_terminated, is_truncated, info_dict = self._environment_obj.step(
                     #     action_int
                     # )
 
+                    # TODO: Remove after testing
                     observation_dict, reward, is_terminated, is_truncated, info_dict = self._environment_obj_human_render_mode.step(
                         action_int
                     )
