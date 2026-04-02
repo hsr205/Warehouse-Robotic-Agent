@@ -124,7 +124,7 @@ class WareHouseEnv(MiniGridEnv):
         for column_num in shelf_aisle_columns_list:
 
             for row_num in range(1, height - 1):
-                is_row_first_or_last:bool = row_num == 1 or row_num == height - 2
+                is_row_first_or_last: bool = row_num == 1 or row_num == height - 2
                 if is_row_first_or_last:
                     continue
                 if row_num not in agent_crossing_rows_list:
@@ -424,7 +424,7 @@ class WareHouseEnv(MiniGridEnv):
 
     def _add_agent_incentive_towards_goal_state(self, reward: SupportsFloat,
                                                 previous_distance_to_goal: int,
-                                                previous_agent_position_tuple:tuple[int,int]) -> SupportsFloat:
+                                                previous_agent_position_tuple: tuple[int, int]) -> SupportsFloat:
 
         if self.agent_pos == previous_agent_position_tuple:
             return reward
