@@ -156,8 +156,6 @@ class WareHouseAgentPPOEvaluation:
         with torch.no_grad():
             action_probabilities_tensor: Tensor = self._actor_network(observation_tensor)
 
-            self._logger.info(f"action_probabilities_tensor = {action_probabilities_tensor}")
-
             # NOTE: Always acting greedy, choosing the action with the highest probability from the softmax
             action_tensor: Tensor = torch.argmax(action_probabilities_tensor, dim=-1)
 
