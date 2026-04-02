@@ -1,5 +1,7 @@
+import time
 from collections import OrderedDict
 from pathlib import Path
+from typing import SupportsFloat
 
 import numpy as np
 import torch
@@ -42,79 +44,133 @@ class WareHouseAgentPPOEvaluation:
         self._critic_network_optimizer: Adam = Adam(params=self._critic_network.parameters(),
                                                     lr=self._learning_rate)
 
-    def evaluate_agent(self, num_episodes: int = 10) -> dict[str, int | float | list]:
+    def evaluate_agent(self, num_episodes: int = 10) -> list[dict[str, int | float | list]]:
 
-        # TODO: Make the following more dynamic after testing
-        checkpoint_path: Path = Path("model_weights/checkpoint_step_1000_2026_03_31_22_18_04.pt")
-        # checkpoint_path: Path = Path("model_weights/")
+        num_seconds: int = 5
+        results_list: list[dict[str, int | float | list]] = []
+        checkpoint_file_paths_list: list[Path] = self._get_all_checkpoint_file_paths_list()
 
+        for check_point_file_path in checkpoint_file_paths_list:
 
-        checkpoint_time_step: int = self._load_checkpoint(checkpoint_path=checkpoint_path)
+            start_time: float = time.time()
 
-        episode_returns_list: list[float] = []
-        episode_lengths_list: list[int] = []
+            checkpoint_time_step: int = self._load_checkpoint(checkpoint_path=check_point_file_path)
 
-        for _ in tqdm(range(0, num_episodes), desc="Evaluate Agent Behaviour"):
-            # observation_dict, info_dict = self._environment_obj.reset()
+            episode_returns_list: list[float] = []
+            episode_lengths_list: list[int] = []
 
-            # TODO: Remove after testing
-            observation_dict, info_dict = self._environment_obj_human_render_mode.reset()
+            for _ in tqdm(range(0, num_episodes), desc="Evaluate Agent Behaviour"):
 
-            is_terminated: bool = False
-            is_truncated: bool = False
-            episode_return: float = 0.0
-            episode_length: int = 0
-            is_done: bool = is_terminated or is_truncated
-
-            while not is_done:
-                action_int: int = self._get_evaluation_action(
-                    observation_dict=observation_dict,
-                )
-
-                self._logger.info(f"Episode Num = {episode_length}")
-
-                self._logger.info("=" * 100)
-
-                self._logger.info(f"Evaluation Action taken: {Constants.ACTION_SPACE_MAPPING_DICT.get(action_int, "")}")
-
-                self._logger.info("=" * 100)
+                # observation_dict, info_dict = self._environment_obj.reset()
 
                 # TODO: Remove after testing
-                # observation_dict, reward, is_terminated, is_truncated, info_dict = self._environment_obj.step(
-                #     action_int
-                # )
+                observation_dict, info_dict = self._environment_obj_human_render_mode.reset()
 
-                observation_dict, reward, is_terminated, is_truncated, info_dict = self._environment_obj_human_render_mode.step(
-                    action_int
-                )
+                is_terminated: bool = False
+                is_truncated: bool = False
+                episode_return: float = 0.0
+                episode_length: int = 0
+                is_done: bool = is_terminated or is_truncated
 
-                is_done = is_terminated or is_truncated
+                while not is_done:
 
-                self._logger.info(
-                    f"Reward: {reward} -> Is Terminated: {is_terminated} -> Is Truncated: {is_truncated} -> Info Dict: {info_dict} -> Is Done: {is_done}")
+                    current_time: float = time.time()
+                    if current_time - start_time >= num_seconds:
+                        break
 
-                self._logger.info("=" * 100)
+                    action_int: int = self._get_evaluation_action(
+                        observation_dict=observation_dict,
+                    )
 
-                episode_return += reward
-                episode_length += 1
+                    self._logger.info(f"Episode Num = {episode_length}")
 
-            episode_returns_list.append(episode_return)
-            episode_lengths_list.append(episode_length)
+                    self._logger.info("=" * 100)
 
-        results_dict: dict[str, int | float | list] = {
-            "checkpoint_path": checkpoint_path,
-            "time_step": checkpoint_time_step,
-            "num_episodes": num_episodes,
-            "mean_return": float(np.mean(episode_returns_list)),
-            "min_return": float(np.min(episode_lengths_list)),
-            "max_return": float(np.max(episode_returns_list)),
-            "mean_episode_length": float(np.mean(episode_lengths_list)),
-            "std_episode_length": float(np.std(episode_lengths_list)),
-            "episode_returns": episode_returns_list,
-            "episode_lengths": episode_lengths_list
+                    self._logger.info(
+                        f"Evaluation Action taken: {Constants.ACTION_SPACE_MAPPING_DICT.get(action_int, "")}")
+
+                    self._logger.info("=" * 100)
+
+                    # TODO: Remove after testing
+                    # observation_dict, reward, is_terminated, is_truncated, info_dict = self._environment_obj.step(
+                    #     action_int
+                    # )
+
+                    observation_dict, reward, is_terminated, is_truncated, info_dict = self._environment_obj_human_render_mode.step(
+                        action_int
+                    )
+
+                    is_done = is_terminated or is_truncated
+
+                    self._logger.info(
+                        f"Reward: {reward} -> Is Terminated: {is_terminated} -> Is Truncated: {is_truncated} -> Info Dict: {info_dict} -> Is Done: {is_done}")
+
+                    self._logger.info("=" * 100)
+
+                    episode_return += reward
+                    episode_length += 1
+
+                episode_returns_list.append(episode_return)
+                episode_lengths_list.append(episode_length)
+
+            results_dict: dict[str, int | float | list] = {
+                "checkpoint_path": check_point_file_path,
+                "time_step": checkpoint_time_step,
+                "num_episodes": num_episodes,
+                "mean_return": float(np.mean(episode_returns_list)),
+                "min_return": float(np.min(episode_lengths_list)),
+                "max_return": float(np.max(episode_returns_list)),
+                "mean_episode_length": float(np.mean(episode_lengths_list)),
+                "std_episode_length": float(np.std(episode_lengths_list)),
+                "episode_returns": episode_returns_list,
+                "episode_lengths": episode_lengths_list
+            }
+
+            results_list.append(results_dict)
+
+        return results_list
+
+    def _evaluate_for_fixed_time(self, reward: SupportsFloat, duration_seconds: int = 10) -> dict:
+
+        start_time: float = time.time()
+
+        episode_count: int = 0
+        total_reward: float = 0.0
+
+        while True:
+
+            current_time: float = time.time()
+
+            if current_time - start_time >= duration_seconds:
+                break
+
+            total_reward += reward
+            episode_count += 1
+
+        average_reward: float = 0.0
+
+        if episode_count > 0:
+            average_reward = total_reward / episode_count
+
+        return {
+            "episodes_run": episode_count,
+            "total_reward": total_reward,
+            "average_reward": average_reward
         }
 
-        return results_dict
+    def _get_all_checkpoint_file_paths_list(self) -> list[Path]:
+
+        checkpoint_dir: Path = Path("model_weights/")
+
+        checkpoint_paths_list: list[Path] = []
+
+        for file_path in checkpoint_dir.iterdir():
+            if file_path.is_file() and file_path.suffix == ".pt":
+                checkpoint_paths_list.append(file_path)
+
+        checkpoint_paths_list.sort()
+
+        return checkpoint_paths_list
 
     def _get_evaluation_action(self, observation_dict: dict) -> int:
 
