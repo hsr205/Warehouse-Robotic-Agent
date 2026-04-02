@@ -234,7 +234,6 @@ class WareHouseEnv(MiniGridEnv):
             return observation, reward, is_terminated, is_truncated, info
 
         if self._is_carrying_package:
-            # reward = self._add_agent_incentive_to_face_goal_while_carrying(reward=reward)
 
             reward = self._add_agent_incentive_towards_goal_state(
                 reward=reward,
@@ -253,45 +252,6 @@ class WareHouseEnv(MiniGridEnv):
         info["collision"] = False
 
         return observation, reward, is_terminated, is_truncated, info
-
-    def _add_agent_incentive_to_face_goal_while_carrying(self, reward: SupportsFloat) -> SupportsFloat:
-
-        if not self._is_carrying_package:
-            return reward
-
-        current_x_coordinate: int = self.agent_pos[0]
-        current_y_coordinate: int = self.agent_pos[1]
-
-        goal_x_coordinate: int = self._goal_position_tuple[0]
-        goal_y_coordinate: int = self._goal_position_tuple[1]
-
-        front_x_coordinate: int = current_x_coordinate
-        front_y_coordinate: int = current_y_coordinate
-
-        if self.agent_dir == 0:
-            front_x_coordinate += 1
-        elif self.agent_dir == 1:
-            front_y_coordinate += 1
-        elif self.agent_dir == 2:
-            front_x_coordinate -= 1
-        else:
-            front_y_coordinate -= 1
-
-        if front_x_coordinate <= 0 or front_y_coordinate <= 0:
-            return reward
-
-        if front_x_coordinate >= self.width - 1 or front_y_coordinate >= self.height - 1:
-            return reward
-
-        current_distance_to_goal: int = abs(current_x_coordinate - goal_x_coordinate) + abs(
-            current_y_coordinate - goal_y_coordinate)
-        front_cell_distance_to_goal: int = abs(front_x_coordinate - goal_x_coordinate) + abs(
-            front_y_coordinate - goal_y_coordinate)
-
-        if front_cell_distance_to_goal < current_distance_to_goal:
-            reward += 0.05
-
-        return reward
 
     def _move_obstacles(self) -> None:
         """
