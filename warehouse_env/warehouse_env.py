@@ -15,7 +15,7 @@ from logger.logger import AppLogger
 class WareHouseEnv(MiniGridEnv):
     def __init__(
             self,
-            size: int = 12,
+            size: int = 14,
             agent_start_position_tuple: tuple[int, int] = (1, 1),
             agent_start_direction: int = 0,
             max_steps: int | None = None,
