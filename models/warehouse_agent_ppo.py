@@ -61,7 +61,11 @@ class WareHouseAgentPPO:
 
             # self._entropy_coefficient = max(0.005, self._entropy_coefficient * 0.995)
 
-            is_valid_save_point: bool = current_training_iteration > 0 and current_training_iteration % 200 == 0 or current_training_iteration == self._total_actions_taken_during_training
+            is_checkpoint_save_point: bool = current_training_iteration % 200 == 0
+            is_checkpoint_save_point_not_first_step: bool = current_training_iteration > 0
+            is_end_of_training_save_point: bool = current_training_iteration == self._total_actions_taken_during_training
+
+            is_valid_save_point: bool = is_checkpoint_save_point_not_first_step and is_checkpoint_save_point or is_end_of_training_save_point
 
             if is_valid_save_point:
                 self._save_checkpoint(current_training_iteration=current_training_iteration)
