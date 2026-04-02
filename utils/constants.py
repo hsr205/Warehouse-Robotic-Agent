@@ -13,3 +13,10 @@ class Constants:
         5: "TOGGLE",
         6: "DONE_COMPLETING_TASK",
     }
+
+    AGENT_DIRECTION_MAPPING_DICT: dict[int, str] = {
+        0: "RIGHT",
+        1: "DOWN",
+        2: "LEFT",
+        3: "UP",
+    }

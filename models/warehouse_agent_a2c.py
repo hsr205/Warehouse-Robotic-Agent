@@ -21,7 +21,7 @@ class WareHouseAgentA2C:
     def __init__(self) -> None:
         self._gamma: float = 0.95
         self._learning_rate: float = 3e-4
-        self._entropy_coefficient: float = 0.01
+        self._entropy_coefficient: float = 0.01 #higher = more exploring 
         self._critic_coefficient: float = 0.5
 
         self._total_training_iterations: int = 100

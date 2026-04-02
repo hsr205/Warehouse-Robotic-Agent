@@ -25,22 +25,18 @@ class WareHouseAgentPPO:
         self._gamma: float = 0.95
 
         self._learning_rate: float = 3e-4
-        self._total_time_steps: int = 1_000
-        self._entropy_coefficient: float = 0.06
-        self._time_steps_per_batch: int = 1_000
+        self._entropy_coefficient: float = 0.075
         self._num_updates_per_iteration: int = 5
-        self._num_training_steps: int = 1_000_000
-        self._max_time_steps_per_episode: int = 2_000
+        self._max_time_steps_per_episode: int = 100
+        self._total_actions_taken_during_training: int = 1_600
+        self._time_steps_per_batch_before_policy_update: int = 3_000
         self._environment_obj: WareHouseEnv = WareHouseEnv(render_mode=None)
         self._logger = AppLogger.get_logger(self.__class__.__name__)
-        self._environment_obj_human_render_mode: WareHouseEnv = WareHouseEnv(render_mode='human')
         # # TODO: Uncomment after testing
         # self._action_dimensions = self._environment_obj.action_space.n
 
         # TODO: Remove after testing
-        self._action_dimensions = self._environment_obj.action_space = Discrete(3).n
-
-        self._observation_dimensions = self._environment_obj.observation_space.get("direction").n
+        self._action_dimensions = self._environment_obj.action_space = Discrete(4).n
 
         self._device = self._get_device()
 
@@ -54,22 +50,24 @@ class WareHouseAgentPPO:
         self._critic_network_optimizer: Adam = Adam(params=self._critic_network.parameters(),
                                                     lr=self._learning_rate)
 
-        # NOTE: Standard deviation set to 0.5 arbitrarily.
-        self._covariance_variable = torch.full(size=(self._action_dimensions,), fill_value=0.5)
-        self._covariance_matrix = torch.diag(input=self._covariance_variable)
-
     def train_agent(self) -> None:
 
+        start_time: datetime = datetime.now()
         current_training_iteration: int = 0
-        progress_bar: tqdm = tqdm(total=self._total_time_steps, desc="Training Warehouse PPO Agent")
+        progress_bar: tqdm = tqdm(total=self._total_actions_taken_during_training, desc="Training Warehouse PPO Agent")
 
-        while current_training_iteration <= self._total_time_steps:
+        while current_training_iteration <= self._total_actions_taken_during_training:
 
             # self._entropy_coefficient = max(0.005, self._entropy_coefficient * 0.995)
 
-            # TODO: Uncomment after testing
-            if current_training_iteration > 0 and current_training_iteration % 100 == 0:
-                self._save_checkpoint(current_training_iteration=current_training_iteration)
+            is_checkpoint_save_point: bool = current_training_iteration % 200 == 0
+            is_checkpoint_save_point_not_first_step: bool = current_training_iteration > 0
+            is_end_of_training_save_point: bool = current_training_iteration == self._total_actions_taken_during_training
+
+            is_valid_save_point: bool = is_checkpoint_save_point_not_first_step and is_checkpoint_save_point or is_end_of_training_save_point
+
+            if is_valid_save_point:
+                self._save_checkpoint(current_training_iteration=current_training_iteration, start_time=start_time)
 
             batch_observation_tensor, batch_actions_tensor, batch_rewards_tensor, batch_length_tensor, batch_log_probability_tensor = self._rollout()
 
@@ -95,20 +93,24 @@ class WareHouseAgentPPO:
 
                 )
 
-                # NOTE: This ratio is simply - π_theta(a_t | s_t) / π_theta_k(a_t | s_t)
+                # NOTE: This ratio is simply: π_theta(a_t | s_t) / π_theta_k(a_t | s_t)
                 ratios_tensor: Tensor = torch.exp(
                     input=(current_log_probabilities_tensor - batch_log_probability_tensor))
 
+                # NOTE: This is: π_theta(a_t | s_t)
                 surrogate_loss_tensor_1: Tensor = ratios_tensor * advantage_value_tensor
 
                 # NOTE: The following prevents the ratio from take too large a step
                 #       This is one if not thee core principle of PPO
                 lower_bound_clip_value: float = 1 - self._clip
                 upper_bound_clip_value: float = 1 + self._clip
+
+                # NOTE: This is: π_theta_k(a_t | s_t)
                 surrogate_loss_tensor_2: Tensor = torch.clamp(ratios_tensor, lower_bound_clip_value,
                                                               upper_bound_clip_value) * advantage_value_tensor
                 # NOTE: Maximizes loss through negation
                 #       this will be optimized by Adam later and will improve performance
+                # NOTE: The entropy coefficient is leverage as an exploration bonus
                 actor_network_loss_tensor: Tensor = -torch.min(surrogate_loss_tensor_1,
                                                                surrogate_loss_tensor_2).mean() - self._entropy_coefficient * entropy_tensor.mean()
 
@@ -171,7 +173,7 @@ class WareHouseAgentPPO:
         batch_rewards_list: list[list[float]] = []
         batch_log_probability_list: list[float] = []
 
-        while current_time_step < self._time_steps_per_batch:
+        while current_time_step < self._time_steps_per_batch_before_policy_update:
 
             episode_length: int = 0
             episode_rewards: list[float] = []
@@ -179,7 +181,7 @@ class WareHouseAgentPPO:
 
             for _ in range(0, self._max_time_steps_per_episode):
 
-                if current_time_step >= self._time_steps_per_batch:
+                if current_time_step >= self._time_steps_per_batch_before_policy_update:
                     break
 
                 batch_observation_list.append(observation_dict)
@@ -294,7 +296,7 @@ class WareHouseAgentPPO:
 
         return action_tensor.item(), log_probabilities_tensor.item()
 
-    def _save_checkpoint(self, current_training_iteration: int) -> None:
+    def _save_checkpoint(self, current_training_iteration: int, start_time: datetime) -> None:
 
         file_path: Path = self._get_file_path(current_training_iteration=current_training_iteration)
 
@@ -308,8 +310,16 @@ class WareHouseAgentPPO:
 
         torch.save(checkpoint_dict, file_path)
 
+        self._display_save_checkpoint_logger_statements(file_path=file_path, start_time=start_time)
+
+    def _display_save_checkpoint_logger_statements(self, file_path: Path, start_time: datetime) -> None:
         self._logger.info("\n")
         self._logger.info("=" * 100)
+        now = datetime.now()
+        formatted_start_time = start_time.strftime("%b-%d, %H:%M:%S")
+        formatted_current_time = now.strftime("%b-%d, %H:%M:%S")
+        self._logger.info(f"Start Time: {formatted_start_time}")
+        self._logger.info(f"Current Time: {formatted_current_time}")
         self._logger.info(f"Successfully saved: {file_path}")
         self._logger.info("=" * 100)
 

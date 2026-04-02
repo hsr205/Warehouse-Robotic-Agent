@@ -1,3 +1,4 @@
+import time
 from collections import OrderedDict
 from pathlib import Path
 
@@ -12,7 +13,6 @@ from tqdm import tqdm
 from logger.logger import AppLogger
 from models.actor_network import ActorNetwork
 from models.critic_network import CriticNetwork
-from utils.constants import Constants
 from warehouse_env.warehouse_env import WareHouseEnv
 
 
@@ -27,9 +27,7 @@ class WareHouseAgentPPOEvaluation:
         # self._action_dimensions = self._environment_obj.action_space.n
 
         # TODO: Remove after testing
-        self._action_dimensions = self._environment_obj.action_space = Discrete(3).n
-
-        self._observation_dimensions = self._environment_obj.observation_space.get("direction").n
+        self._action_dimensions = self._environment_obj.action_space = Discrete(4).n
 
         self._device = self._get_device()
         self._actor_network: ActorNetwork = ActorNetwork(output_dimensions=self._action_dimensions,
@@ -42,80 +40,107 @@ class WareHouseAgentPPOEvaluation:
         self._critic_network_optimizer: Adam = Adam(params=self._critic_network.parameters(),
                                                     lr=self._learning_rate)
 
-    def evaluate_agent(self, num_episodes: int = 10) -> dict[str, int | float | list]:
+    def evaluate_agent(self, num_episodes: int = 10) -> list[dict[str, int | float | list]]:
 
-        # TODO: Make the following more dynamic after testing
-        checkpoint_path: Path = Path("model_weights/")
-        # checkpoint_path: Path = Path("model_weights/")
-        # checkpoint_path: Path = Path("model_weights/")
-        # checkpoint_path: Path = Path("model_weights/")
+        num_seconds: int = 7
+        results_list: list[dict[str, int | float | list]] = []
+        checkpoint_file_paths_list: list[Path] = self._get_all_checkpoint_file_paths_list()
 
-        checkpoint_time_step: int = self._load_checkpoint(checkpoint_path=checkpoint_path)
+        for check_point_file_path in checkpoint_file_paths_list:
 
-        episode_returns_list: list[float] = []
-        episode_lengths_list: list[int] = []
+            start_time: float = time.time()
 
-        for _ in tqdm(range(0, num_episodes), desc="Evaluate Agent Behaviour"):
-            # observation_dict, info_dict = self._environment_obj.reset()
+            checkpoint_time_step: int = self._load_checkpoint(checkpoint_path=check_point_file_path)
 
-            # TODO: Remove after testing
-            observation_dict, info_dict = self._environment_obj_human_render_mode.reset()
+            episode_returns_list: list[float] = []
+            episode_lengths_list: list[int] = []
 
-            is_terminated: bool = False
-            is_truncated: bool = False
-            episode_return: float = 0.0
-            episode_length: int = 0
-            is_done: bool = is_terminated or is_truncated
+            for _ in tqdm(range(0, num_episodes), desc="Evaluate Agent Behaviour"):
 
-            while not is_done:
-                action_int: int = self._get_evaluation_action(
-                    observation_dict=observation_dict,
-                )
-
-                self._logger.info(f"Episode Num = {episode_length}")
-
-                self._logger.info("=" * 100)
-
-                self._logger.info(f"Evaluation Action taken: {Constants.ACTION_SPACE_MAPPING_DICT.get(action_int, "")}")
-
-                self._logger.info("=" * 100)
+                # observation_dict, info_dict = self._environment_obj.reset()
 
                 # TODO: Remove after testing
-                # observation_dict, reward, is_terminated, is_truncated, info_dict = self._environment_obj.step(
-                #     action_int
-                # )
+                observation_dict, info_dict = self._environment_obj_human_render_mode.reset()
 
-                observation_dict, reward, is_terminated, is_truncated, info_dict = self._environment_obj_human_render_mode.step(
-                    action_int
-                )
+                is_terminated: bool = False
+                is_truncated: bool = False
+                episode_return: float = 0.0
+                episode_length: int = 0
+                is_done: bool = is_terminated or is_truncated
 
-                is_done = is_terminated or is_truncated
+                while not is_done:
 
-                self._logger.info(
-                    f"Reward: {reward} -> Is Terminated: {is_terminated} -> Is Truncated: {is_truncated} -> Info Dict: {info_dict} -> Is Done: {is_done}")
+                    # TODO: Remove after testing
+                    current_time: float = time.time()
+                    if current_time - start_time >= num_seconds:
+                        break
 
-                self._logger.info("=" * 100)
+                    action_int: int = self._get_evaluation_action(
+                        observation_dict=observation_dict,
+                    )
 
-                episode_return += reward
-                episode_length += 1
+                    # self._logger.info(f"Episode Num = {episode_length}")
+                    #
+                    # self._logger.info("=" * 100)
+                    #
+                    # self._logger.info(
+                    #     f"Evaluation Action taken: {Constants.ACTION_SPACE_MAPPING_DICT.get(action_int, "")}")
+                    #
+                    # self._logger.info("=" * 100)
 
-            episode_returns_list.append(episode_return)
-            episode_lengths_list.append(episode_length)
+                    # TODO: Add after testing
+                    # observation_dict, reward, is_terminated, is_truncated, info_dict = self._environment_obj.step(
+                    #     action_int
+                    # )
 
-        results_dict: dict[str, int | float | list] = {
-            "checkpoint_path": checkpoint_path,
-            "time_step": checkpoint_time_step,
-            "num_episodes": num_episodes,
-            "mean_return": float(np.mean(episode_returns_list)),
-            "min_return": float(np.min(episode_lengths_list)),
-            "max_return": float(np.max(episode_returns_list)),
-            "mean_episode_length": float(np.mean(episode_lengths_list)),
-            "std_episode_length": float(np.std(episode_lengths_list)),
-            "episode_returns": episode_returns_list,
-            "episode_lengths": episode_lengths_list
-        }
+                    # TODO: Remove after testing
+                    observation_dict, reward, is_terminated, is_truncated, info_dict = self._environment_obj_human_render_mode.step(
+                        action_int
+                    )
 
-        return results_dict
+                    is_done = is_terminated or is_truncated
+
+                    # self._logger.info(
+                    #     f"Reward: {reward} -> Is Terminated: {is_terminated} -> Is Truncated: {is_truncated} -> Info Dict: {info_dict} -> Is Done: {is_done}")
+                    #
+                    # self._logger.info("=" * 100)
+
+                    episode_return += reward
+                    episode_length += 1
+
+                episode_returns_list.append(episode_return)
+                episode_lengths_list.append(episode_length)
+
+            results_dict: dict[str, int | float | list] = {
+                "checkpoint_path": check_point_file_path,
+                "time_step": checkpoint_time_step,
+                "num_episodes": num_episodes,
+                "mean_return": float(np.mean(episode_returns_list)),
+                "min_return": float(np.min(episode_lengths_list)),
+                "max_return": float(np.max(episode_returns_list)),
+                "mean_episode_length": float(np.mean(episode_lengths_list)),
+                "std_episode_length": float(np.std(episode_lengths_list)),
+                "episode_returns": episode_returns_list,
+                "episode_lengths": episode_lengths_list
+            }
+
+            results_list.append(results_dict)
+
+        return results_list
+
+    def _get_all_checkpoint_file_paths_list(self) -> list[Path]:
+
+        checkpoint_dir: Path = Path("model_weights/")
+
+        checkpoint_paths_list: list[Path] = []
+
+        for file_path in checkpoint_dir.iterdir():
+            if file_path.is_file() and file_path.suffix == ".pt":
+                checkpoint_paths_list.append(file_path)
+
+        checkpoint_paths_list.sort()
+
+        return checkpoint_paths_list
 
     def _get_evaluation_action(self, observation_dict: dict) -> int:
 
@@ -130,8 +155,6 @@ class WareHouseAgentPPOEvaluation:
 
         with torch.no_grad():
             action_probabilities_tensor: Tensor = self._actor_network(observation_tensor)
-
-            self._logger.info(f"action_probabilities_tensor = {action_probabilities_tensor}")
 
             # NOTE: Always acting greedy, choosing the action with the highest probability from the softmax
             action_tensor: Tensor = torch.argmax(action_probabilities_tensor, dim=-1)

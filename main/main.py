@@ -14,8 +14,8 @@ def main() -> int:
 
     try:
 
-        warehouse_env.randomly_navigate_custom_grid_world()
-        # warehouse_agent_ppo.train_agent()
+        # warehouse_env.randomly_navigate_custom_grid_world()
+        warehouse_agent_ppo.train_agent()
         # warehouse_agent_ppo_evaluation.evaluate_agent()
 
         return 0

@@ -3,9 +3,9 @@ __pycache__/
 *.pyc
 .idea/
 .git/
-.env
 
 *.xml
 
 model_weights/
 
+model_weights_a2c/
