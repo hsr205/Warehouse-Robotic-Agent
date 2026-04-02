@@ -93,20 +93,24 @@ class WareHouseAgentPPO:
 
                 )
 
-                # NOTE: This ratio is simply - π_theta(a_t | s_t) / π_theta_k(a_t | s_t)
+                # NOTE: This ratio is simply: π_theta(a_t | s_t) / π_theta_k(a_t | s_t)
                 ratios_tensor: Tensor = torch.exp(
                     input=(current_log_probabilities_tensor - batch_log_probability_tensor))
 
+                # NOTE: This is: π_theta(a_t | s_t)
                 surrogate_loss_tensor_1: Tensor = ratios_tensor * advantage_value_tensor
 
                 # NOTE: The following prevents the ratio from take too large a step
                 #       This is one if not thee core principle of PPO
                 lower_bound_clip_value: float = 1 - self._clip
                 upper_bound_clip_value: float = 1 + self._clip
+
+                # NOTE: This is: π_theta_k(a_t | s_t)
                 surrogate_loss_tensor_2: Tensor = torch.clamp(ratios_tensor, lower_bound_clip_value,
                                                               upper_bound_clip_value) * advantage_value_tensor
                 # NOTE: Maximizes loss through negation
                 #       this will be optimized by Adam later and will improve performance
+                # NOTE: The entropy coefficient is leverage as an exploration bonus
                 actor_network_loss_tensor: Tensor = -torch.min(surrogate_loss_tensor_1,
                                                                surrogate_loss_tensor_2).mean() - self._entropy_coefficient * entropy_tensor.mean()
 
