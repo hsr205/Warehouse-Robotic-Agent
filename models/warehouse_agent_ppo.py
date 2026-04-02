@@ -300,16 +300,6 @@ class WareHouseAgentPPO:
 
         file_path: Path = self._get_file_path(current_training_iteration=current_training_iteration)
 
-        #         self._clip: float = 0.2
-        #         self._gamma: float = 0.95
-        #
-        #         self._learning_rate: float = 3e-4
-        #         self._entropy_coefficient: float = 0.075
-        #         self._num_updates_per_iteration: int = 5
-        #         self._max_time_steps_per_episode: int = 100
-        #         self._total_actions_taken_during_training: int = 1_600
-        #         self._time_steps_per_batch_before_policy_update: int = 3_000
-
         checkpoint_dict: dict[str, int | OrderedDict | dict] = {
             "clip": self._clip,
             "learning_rate":self._learning_rate,
