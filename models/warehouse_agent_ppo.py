@@ -147,7 +147,9 @@ class WareHouseAgentPPO:
         if (current_time - start_time) >= 300:
             now = datetime.now()
             formatted_time = now.strftime("%b-%d, %H:%M:%S")
+            self._logger.info("=" * 100)
             self._logger.info(f"Current Time: {formatted_time}")
+            self._logger.info("=" * 100)
 
     def _evaluate_agent(self, batch_observation_tensor: Tensor, batch_actions_tensor: Tensor) -> tuple[
         Tensor, Tensor, Tensor]:
