@@ -15,7 +15,7 @@ from logger.logger import AppLogger
 class WareHouseEnv(MiniGridEnv):
     def __init__(
             self,
-            size: int = 14,
+            size: int = 16,
             agent_start_position_tuple: tuple[int, int] = (1, 1),
             agent_start_direction: int = 0,
             max_steps: int | None = None,
@@ -77,6 +77,9 @@ class WareHouseEnv(MiniGridEnv):
             # Place dynamic obstacles
             self._place_dynamic_obstacles()
 
+            # Remove grid spaces from the grid environment
+            self._remove_grid_spaces(height=height)
+
             # Place agent
             self._place_agent_at_starting_position()
 
@@ -110,7 +113,7 @@ class WareHouseEnv(MiniGridEnv):
             self.pickup_object = Box(color="blue")
             self.grid.set(pickup_x_coordinate, pickup_y_coordinate, self.pickup_object)
 
-    def _add_grid_elements(self, height: int) -> None:
+    def _remove_grid_spaces(self, height: int) -> None:
         """
         Create a warehouse-style layout with vertical shelf aisles.
         Gaps allow the agent and obstacles to move between aisles.
@@ -119,7 +122,11 @@ class WareHouseEnv(MiniGridEnv):
         agent_crossing_rows_list: list[int] = [4, 8, 12]
 
         for column_num in shelf_aisle_columns_list:
+
             for row_num in range(1, height - 1):
+                is_row_first_or_last:bool = row_num == 1 or row_num == height - 2
+                if is_row_first_or_last:
+                    continue
                 if row_num not in agent_crossing_rows_list:
                     self.grid.set(i=column_num, j=row_num, v=Wall())
 
