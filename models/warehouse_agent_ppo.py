@@ -68,7 +68,7 @@ class WareHouseAgentPPO:
             is_valid_save_point: bool = is_checkpoint_save_point_not_first_step and is_checkpoint_save_point or is_end_of_training_save_point
 
             if is_valid_save_point:
-                self._save_checkpoint(current_training_iteration=current_training_iteration)
+                self._save_checkpoint(current_training_iteration=current_training_iteration, start_time=start_time)
 
             batch_observation_tensor, batch_actions_tensor, batch_rewards_tensor, batch_length_tensor, batch_log_probability_tensor = self._rollout()
 
@@ -86,10 +86,6 @@ class WareHouseAgentPPO:
 
             actor_network_loss_tensor: Tensor | None = None
             critic_network_loss_tensor: Tensor | None = None
-
-            current_time: time = time.time()
-
-            self._display_time_elapsed(start_time=start_time, current_time=current_time)
 
             for _ in range(0, self._num_updates_per_iteration):
                 v_tensor, current_log_probabilities_tensor, entropy_tensor = self._evaluate_agent(
@@ -141,17 +137,6 @@ class WareHouseAgentPPO:
             current_training_iteration += 1
 
         progress_bar.close()
-
-    def _display_time_elapsed(self, start_time: time, current_time: time) -> None:
-        # NOTE: 300 stands for 5 minutes
-        if (current_time - start_time) >= 300:
-            now = datetime.now()
-            formatted_start_time = start_time.strftime("%b-%d, %H:%M:%S")
-            formatted_current_time = now.strftime("%b-%d, %H:%M:%S")
-            self._logger.info("=" * 100)
-            self._logger.info(f"Start Time: {formatted_start_time}")
-            self._logger.info(f"Current Time: {formatted_current_time}")
-            self._logger.info("=" * 100)
 
     def _evaluate_agent(self, batch_observation_tensor: Tensor, batch_actions_tensor: Tensor) -> tuple[
         Tensor, Tensor, Tensor]:
@@ -308,7 +293,7 @@ class WareHouseAgentPPO:
 
         return action_tensor.item(), log_probabilities_tensor.item()
 
-    def _save_checkpoint(self, current_training_iteration: int) -> None:
+    def _save_checkpoint(self, current_training_iteration: int, start_time: time) -> None:
 
         file_path: Path = self._get_file_path(current_training_iteration=current_training_iteration)
 
@@ -322,8 +307,16 @@ class WareHouseAgentPPO:
 
         torch.save(checkpoint_dict, file_path)
 
+        self._display_save_checkpoint_logger_statements(file_path=file_path, start_time=start_time)
+
+    def _display_save_checkpoint_logger_statements(self, file_path: Path, start_time: time) -> None:
         self._logger.info("\n")
         self._logger.info("=" * 100)
+        now = datetime.now()
+        formatted_start_time = start_time.strftime("%b-%d, %H:%M:%S")
+        formatted_current_time = now.strftime("%b-%d, %H:%M:%S")
+        self._logger.info(f"Start Time: {formatted_start_time}")
+        self._logger.info(f"Current Time: {formatted_current_time}")
         self._logger.info(f"Successfully saved: {file_path}")
         self._logger.info("=" * 100)
 
