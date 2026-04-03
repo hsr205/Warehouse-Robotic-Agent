@@ -1,7 +1,6 @@
 import time
 from typing import List, Tuple
 
-import gymnasium as gym
 from gymnasium import Env
 from minigrid.core.grid import Grid
 from minigrid.core.mission import MissionSpace
@@ -125,7 +124,7 @@ class WareHouseEnv(MiniGridEnv):
 
             for row_num in range(1, height - 1):
                 # is_row_first_or_last: bool = row_num == 1 or row_num == height - 2
-                # if row_num == 1:
+                # if is_row_first_or_last:
                 #     continue
                 if row_num not in agent_crossing_rows_list:
                     self.grid.set(i=column_num, j=row_num, v=Wall())
@@ -196,7 +195,6 @@ class WareHouseEnv(MiniGridEnv):
         if self._agent_hits_obstacle():
             reward = -2.0
             is_terminated = True
-            # is_terminated = False
             info["collision"] = True
             self._is_carrying_package = False
             return observation, reward, is_terminated, is_truncated, info
@@ -215,7 +213,6 @@ class WareHouseEnv(MiniGridEnv):
         if self._agent_hits_obstacle():
             reward = -2.0
             is_terminated = True
-            # is_terminated = False
             info["collision"] = True
             self._is_carrying_package = False
             return observation, reward, is_terminated, is_truncated, info
@@ -462,23 +459,6 @@ class WareHouseEnv(MiniGridEnv):
             )
 
             time.sleep(0.15)
-
-            if terminated_bool or truncated_bool:
-                observation_dict, info_dict = environment_obj.reset()
-
-        environment_obj.close()
-
-    def randomly_navigate_empty_grid_world(self) -> None:
-        environment_obj: Env = gym.make(id="MiniGrid-Empty-16x16-v0", render_mode="human")
-        observation_dict, info_dict = environment_obj.reset(seed=42)
-
-        for _ in range(200):
-            action_int = environment_obj.action_space.sample()
-            observation_dict, reward_float, terminated_bool, truncated_bool, info_dict = environment_obj.step(
-                action_int
-            )
-
-            time.sleep(0.1)
 
             if terminated_bool or truncated_bool:
                 observation_dict, info_dict = environment_obj.reset()
