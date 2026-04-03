@@ -29,7 +29,7 @@ class WareHouseAgentPPOEvaluation:
         # self._environment_obj: WareHouseEnv2 = WareHouseEnv2(render_mode='none')
         # self._environment_obj_human_render_mode: WareHouseEnv2 = WareHouseEnv2(render_mode='human')
 
-        # self._environment_obj: WareHouseEnv3 = WareHouseEnv3(render_mode='none')
+        self._environment_obj: WareHouseEnv3 = WareHouseEnv3(render_mode='none')
         self._environment_obj_human_render_mode: WareHouseEnv3 = WareHouseEnv3(render_mode='human')
 
         # # TODO: Uncomment after testing
