@@ -53,21 +53,17 @@ class WareHouseAgentPPO:
 
     def train_agent(self) -> None:
 
-        start_time: datetime = datetime.now()
         current_training_iteration: int = 0
+        start_time: datetime = datetime.now()
         progress_bar: tqdm = tqdm(total=self._total_actions_taken_during_training, desc="Training Warehouse PPO Agent")
 
         while current_training_iteration <= self._total_actions_taken_during_training:
 
             # self._entropy_coefficient = max(0.005, self._entropy_coefficient * 0.995)
 
-            is_checkpoint_save_point: bool = current_training_iteration % 250 == 0
-            is_checkpoint_save_point_not_first_step: bool = current_training_iteration > 0
-            is_end_of_training_save_point: bool = current_training_iteration == self._total_actions_taken_during_training
+            is_save_point: bool = self._is_save_point(current_training_iteration=current_training_iteration)
 
-            is_valid_save_point: bool = is_checkpoint_save_point_not_first_step and is_checkpoint_save_point or is_end_of_training_save_point
-
-            if is_valid_save_point:
+            if is_save_point:
                 self._save_checkpoint(current_training_iteration=current_training_iteration, start_time=start_time)
 
             batch_observation_tensor, batch_actions_tensor, batch_rewards_tensor, batch_length_tensor, batch_log_probability_tensor = self._rollout()
@@ -132,15 +128,29 @@ class WareHouseAgentPPO:
 
             progress_bar.update(1)
 
-            if actor_network_loss_tensor is not None and critic_network_loss_tensor is not None:
-                progress_bar.set_postfix({
-                    "actor_loss": actor_network_loss_tensor.item(),
-                    "critic_loss": critic_network_loss_tensor.item()
-                })
+            self._update_progress_bar(progress_bar=progress_bar, actor_network_loss_tensor=actor_network_loss_tensor,
+                                      critic_network_loss_tensor=critic_network_loss_tensor)
 
             current_training_iteration += 1
 
         progress_bar.close()
+
+    def _update_progress_bar(self, progress_bar: tqdm, actor_network_loss_tensor: Tensor,
+                             critic_network_loss_tensor: Tensor) -> None:
+        if actor_network_loss_tensor is not None and critic_network_loss_tensor is not None:
+            progress_bar.set_postfix({
+                "actor_loss": actor_network_loss_tensor.item(),
+                "critic_loss": critic_network_loss_tensor.item()
+            })
+
+    def _is_save_point(self, current_training_iteration: int) -> bool:
+        is_checkpoint_save_point: bool = current_training_iteration % 250 == 0
+        is_checkpoint_save_point_not_first_step: bool = current_training_iteration > 0
+        is_end_of_training_save_point: bool = current_training_iteration == self._total_actions_taken_during_training
+
+        is_save_point: bool = is_checkpoint_save_point_not_first_step and is_checkpoint_save_point or is_end_of_training_save_point
+
+        return is_save_point
 
     def _evaluate_agent(self, batch_observation_tensor: Tensor, batch_actions_tensor: Tensor) -> tuple[
         Tensor, Tensor, Tensor]:
