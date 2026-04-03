@@ -24,9 +24,9 @@ class WareHouseAgentPPOEvaluation:
         self._environment_obj: Env = WareHouseEnv(render_mode=None)
         self._logger = AppLogger.get_logger(self.__class__.__name__)
         # self._environment_obj: WareHouseEnv = WareHouseEnv(render_mode='none')
-        # self._environment_obj: WareHouseEnv2 = WareHouseEnv2(render_mode='none')
-
         # self._environment_obj_human_render_mode: WareHouseEnv = WareHouseEnv(render_mode='human')
+
+        # self._environment_obj: WareHouseEnv2 = WareHouseEnv2(render_mode='none')
         self._environment_obj_human_render_mode: WareHouseEnv2 = WareHouseEnv2(render_mode='human')
 
         # # TODO: Uncomment after testing
@@ -48,7 +48,7 @@ class WareHouseAgentPPOEvaluation:
 
     def evaluate_agent(self, num_episodes: int = 10) -> list[dict[str, int | float | list]]:
 
-        num_seconds: int = 7
+        num_seconds: int = 12
         results_list: list[dict[str, int | float | list]] = []
         checkpoint_file_paths_list: list[Path] = self._get_all_checkpoint_file_paths_list()
 
