@@ -154,6 +154,22 @@ class WareHouseEnv3(MiniGridEnv):
 
             (21, 20), (21, 21),
             (12, 20), (13, 21), (14, 20),
+
+
+            # NOTE - Remove for most working_demo_checkpoint_files_env_3/ files
+            (3, 17),
+            (8, 22),
+            (16, 22),
+            (18, 21),
+            (19, 20),
+            (22, 10),
+            (22, 4),
+            (17, 7),
+            (18, 6),
+            (19, 7),
+            (20, 6),
+            (21, 14),
+            (21, 7),
         ]
 
         for x_coordinate, y_coordinate in isolated_wall_positions:
