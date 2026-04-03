@@ -23,6 +23,9 @@ class WareHouseAgentPPOEvaluation:
         self._learning_rate: float = 3e-4
         self._environment_obj: Env = WareHouseEnv(render_mode=None)
         self._logger = AppLogger.get_logger(self.__class__.__name__)
+        # self._environment_obj: WareHouseEnv = WareHouseEnv(render_mode='none')
+        # self._environment_obj: WareHouseEnv2 = WareHouseEnv2(render_mode='none')
+
         # self._environment_obj_human_render_mode: WareHouseEnv = WareHouseEnv(render_mode='human')
         self._environment_obj_human_render_mode: WareHouseEnv2 = WareHouseEnv2(render_mode='human')
 
