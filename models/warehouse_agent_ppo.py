@@ -13,7 +13,7 @@ from tqdm import tqdm
 from logger.logger import AppLogger
 from models.actor_network import ActorNetwork
 from models.critic_network import CriticNetwork
-from warehouse_env.warehouse_env import WareHouseEnv
+from warehouse_env.warehouse_env_2 import WareHouseEnv2
 
 
 class WareHouseAgentPPO:
@@ -28,9 +28,10 @@ class WareHouseAgentPPO:
         self._entropy_coefficient: float = 0.075
         self._num_updates_per_iteration: int = 5
         self._max_time_steps_per_episode: int = 100
-        self._total_actions_taken_during_training: int = 3_000
-        self._time_steps_per_batch_before_policy_update: int = 5_000
-        self._environment_obj: WareHouseEnv = WareHouseEnv(render_mode=None)
+        self._total_actions_taken_during_training: int = 2_000
+        self._time_steps_per_batch_before_policy_update: int = 4_000
+        # self._environment_obj: WareHouseEnv = WareHouseEnv(render_mode=None)
+        self._environment_obj: WareHouseEnv2 = WareHouseEnv2(render_mode=None)
         self._logger = AppLogger.get_logger(self.__class__.__name__)
         # # TODO: Uncomment after testing
         # self._action_dimensions = self._environment_obj.action_space.n
@@ -302,7 +303,7 @@ class WareHouseAgentPPO:
 
         checkpoint_dict: dict[str, int | OrderedDict | dict] = {
             "clip": self._clip,
-            "learning_rate":self._learning_rate,
+            "learning_rate": self._learning_rate,
             "entropy_coefficient": self._entropy_coefficient,
             "num_updates_per_iteration": self._num_updates_per_iteration,
             "max_time_steps_per_episode": self._max_time_steps_per_episode,
