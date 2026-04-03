@@ -379,9 +379,9 @@ class WareHouseEnv3(MiniGridEnv):
             )
 
             if current_distance_to_pickup < previous_distance_to_pickup:
-                reward += 7.5
+                reward += 10.0
             elif current_distance_to_pickup > previous_distance_to_pickup:
-                reward -= 0.5
+                reward -= 0.75
 
         return reward
 
