@@ -280,7 +280,7 @@ class WareHouseEnv3(MiniGridEnv):
         reward = self._agent_incentive_to_pickup_package(reward=reward, action_int=action_int)
 
         if self._agent_reaches_goal_state() and self._is_carrying_package:
-            reward = 30
+            reward = 50
             is_terminated = True
             info["collision"] = False
             self._is_carrying_package = False
@@ -401,9 +401,9 @@ class WareHouseEnv3(MiniGridEnv):
             )
 
             if current_distance_to_pickup < previous_distance_to_pickup:
-                reward += 12.5
+                reward += 15.5
             elif current_distance_to_pickup > previous_distance_to_pickup:
-                reward -= 0.75
+                reward -= 1.0
 
         return reward
 
@@ -419,7 +419,7 @@ class WareHouseEnv3(MiniGridEnv):
                 package_y_coordinate: int = self._package_position_list[0][1]
 
                 self.grid.set(i=package_x_coordinate, j=package_y_coordinate, v=None)
-                reward += 30.0
+                reward += 35.0
                 return reward
 
             if not is_action_pickup and is_agent_in_valid_pickup_location:
@@ -445,9 +445,9 @@ class WareHouseEnv3(MiniGridEnv):
         current_distance_to_goal: int = self._get_manhattan_distance(position_tuple=self._goal_position_tuple)
 
         if current_distance_to_goal < previous_distance_to_goal:
-            reward += 10.0
+            reward += 15.0
         elif current_distance_to_goal > previous_distance_to_goal:
-            reward -= 2.5
+            reward -= 3.5
 
         return reward
 
