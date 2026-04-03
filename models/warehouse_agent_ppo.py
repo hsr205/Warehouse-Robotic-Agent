@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import torch
@@ -55,7 +56,7 @@ class WareHouseAgentPPO:
     def train_agent(self) -> None:
 
         current_training_iteration: int = 0
-        start_time: datetime = datetime.now()
+        start_time: datetime = datetime.now(ZoneInfo("America/New_York"))
         progress_bar: tqdm = tqdm(total=self._total_actions_taken_during_training, desc="Training Warehouse PPO Agent")
 
         while current_training_iteration <= self._total_actions_taken_during_training:
@@ -334,9 +335,9 @@ class WareHouseAgentPPO:
     def _display_save_checkpoint_logger_statements(self, file_path: Path, start_time: datetime) -> None:
         self._logger.info("\n")
         self._logger.info("=" * 100)
-        now = datetime.now()
-        formatted_start_time = start_time.strftime("%b-%d, %H:%M:%S")
-        formatted_current_time = now.strftime("%b-%d, %H:%M:%S")
+        now = datetime.now(ZoneInfo("America/New_York"))
+        formatted_start_time = start_time.strftime("%b-%d, %I:%M:%S %p")
+        formatted_current_time = now.strftime("%b-%d, %I:%M:%S %p")
         self._logger.info(f"Start Time: {formatted_start_time}")
         self._logger.info(f"Current Time: {formatted_current_time}")
         self._logger.info(f"Successfully saved: {file_path}")
