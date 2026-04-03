@@ -4,6 +4,7 @@ from logger.logger import AppLogger
 from models.warehouse_agent_ppo import WareHouseAgentPPO
 from models.warehouse_agent_ppo_evaluation import WareHouseAgentPPOEvaluation
 from warehouse_env.warehouse_env import WareHouseEnv
+from warehouse_env.warehouse_env_2 import WareHouseEnv2
 
 
 def main() -> int:
@@ -11,10 +12,12 @@ def main() -> int:
     warehouse_agent_ppo: WareHouseAgentPPO = WareHouseAgentPPO()
     warehouse_agent_ppo_evaluation: WareHouseAgentPPOEvaluation = WareHouseAgentPPOEvaluation()
     warehouse_env: WareHouseEnv = WareHouseEnv()
+    warehouse_env_2: WareHouseEnv2 = WareHouseEnv2()
 
     try:
 
         # warehouse_env.randomly_navigate_custom_grid_world()
+        # warehouse_env_2.randomly_navigate_custom_grid_world()
         warehouse_agent_ppo.train_agent()
         # warehouse_agent_ppo_evaluation.evaluate_agent()
 
