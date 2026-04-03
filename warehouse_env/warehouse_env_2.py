@@ -359,6 +359,22 @@ class WareHouseEnv2(MiniGridEnv):
 
         return reward
 
+    def _add_agent_incentive_towards_goal_state(self, reward: SupportsFloat,
+                                                previous_distance_to_goal: int,
+                                                previous_agent_position_tuple: tuple[int, int]) -> SupportsFloat:
+
+        if self.agent_pos == previous_agent_position_tuple:
+            return reward
+
+        current_distance_to_goal: int = self._get_manhattan_distance(position_tuple=self._goal_position_tuple)
+
+        if current_distance_to_goal < previous_distance_to_goal:
+            reward += 7.5
+        elif current_distance_to_goal > previous_distance_to_goal:
+            reward -= 2.5
+
+        return reward
+
     def _is_agent_in_valid_pickup_location(self) -> bool:
         agent_x_coordinate: int = self.agent_pos[0]
         agent_y_coordinate: int = self.agent_pos[1]
@@ -387,22 +403,6 @@ class WareHouseEnv2(MiniGridEnv):
             return True
 
         return False
-
-    def _add_agent_incentive_towards_goal_state(self, reward: SupportsFloat,
-                                                previous_distance_to_goal: int,
-                                                previous_agent_position_tuple: tuple[int, int]) -> SupportsFloat:
-
-        if self.agent_pos == previous_agent_position_tuple:
-            return reward
-
-        current_distance_to_goal: int = self._get_manhattan_distance(position_tuple=self._goal_position_tuple)
-
-        if current_distance_to_goal < previous_distance_to_goal:
-            reward += 5.5
-        elif current_distance_to_goal > previous_distance_to_goal:
-            reward -= 1.5
-
-        return reward
 
     def _get_manhattan_distance(self, position_tuple: tuple[int, int]) -> int:
         current_x_coordinate, current_y_coordinate = self.agent_pos
