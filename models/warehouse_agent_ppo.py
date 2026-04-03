@@ -13,7 +13,7 @@ from tqdm import tqdm
 from logger.logger import AppLogger
 from models.actor_network import ActorNetwork
 from models.critic_network import CriticNetwork
-from warehouse_env.warehouse_env_2 import WareHouseEnv2
+from warehouse_env.warehouse_env_3 import WareHouseEnv3
 
 
 class WareHouseAgentPPO:
@@ -31,7 +31,8 @@ class WareHouseAgentPPO:
         self._total_actions_taken_during_training: int = 2_000
         self._time_steps_per_batch_before_policy_update: int = 4_000
         # self._environment_obj: WareHouseEnv = WareHouseEnv(render_mode=None)
-        self._environment_obj: WareHouseEnv2 = WareHouseEnv2(render_mode=None)
+        # self._environment_obj: WareHouseEnv2 = WareHouseEnv2(render_mode=None)
+        self._environment_obj: WareHouseEnv3 = WareHouseEnv3(render_mode=None)
         self._logger = AppLogger.get_logger(self.__class__.__name__)
         # # TODO: Uncomment after testing
         # self._action_dimensions = self._environment_obj.action_space.n
