@@ -66,7 +66,7 @@ class WareHouseEnv2(MiniGridEnv):
             self._create_grid_world(width=width, height=height)
 
             self._package_position_list = [
-                (15, 3)
+                (11, 12)
             ]
 
             for pickup_position_tuple in self._package_position_list:
@@ -320,7 +320,7 @@ class WareHouseEnv2(MiniGridEnv):
                 agent_y_coordinate - pickup_y_coordinate)
 
             if current_distance_to_pickup < previous_distance_to_pickup:
-                reward += 0.2
+                reward += 1.0
             elif current_distance_to_pickup > previous_distance_to_pickup:
                 reward -= 0.2
 
@@ -343,7 +343,7 @@ class WareHouseEnv2(MiniGridEnv):
 
                 self.grid.set(i=package_x_coordinate, j=package_y_coordinate, v=None)
 
-                reward += 15.0
+                reward += 22.5
 
                 return reward
 
@@ -398,9 +398,9 @@ class WareHouseEnv2(MiniGridEnv):
         current_distance_to_goal: int = self._get_manhattan_distance(position_tuple=self._goal_position_tuple)
 
         if current_distance_to_goal < previous_distance_to_goal:
-            reward += 3.0
+            reward += 7.5
         elif current_distance_to_goal > previous_distance_to_goal:
-            reward -= 1.5
+            reward -= 2.5
 
         return reward
 
