@@ -13,7 +13,7 @@ from tqdm import tqdm
 from logger.logger import AppLogger
 from models.actor_network import ActorNetwork
 from models.critic_network import CriticNetwork
-from warehouse_env.warehouse_env import WareHouseEnv
+from warehouse_env.warehouse_env_2 import WareHouseEnv2
 
 
 class WareHouseAgentPPO:
@@ -28,9 +28,10 @@ class WareHouseAgentPPO:
         self._entropy_coefficient: float = 0.075
         self._num_updates_per_iteration: int = 5
         self._max_time_steps_per_episode: int = 100
-        self._total_actions_taken_during_training: int = 1_600
+        self._total_actions_taken_during_training: int = 2_000
         self._time_steps_per_batch_before_policy_update: int = 3_000
-        self._environment_obj: WareHouseEnv = WareHouseEnv(render_mode=None)
+        # self._environment_obj: WareHouseEnv = WareHouseEnv(render_mode=None)
+        self._environment_obj: WareHouseEnv2 = WareHouseEnv2(render_mode=None)
         self._logger = AppLogger.get_logger(self.__class__.__name__)
         # # TODO: Uncomment after testing
         # self._action_dimensions = self._environment_obj.action_space.n
@@ -52,21 +53,17 @@ class WareHouseAgentPPO:
 
     def train_agent(self) -> None:
 
-        start_time: datetime = datetime.now()
         current_training_iteration: int = 0
+        start_time: datetime = datetime.now()
         progress_bar: tqdm = tqdm(total=self._total_actions_taken_during_training, desc="Training Warehouse PPO Agent")
 
         while current_training_iteration <= self._total_actions_taken_during_training:
 
             # self._entropy_coefficient = max(0.005, self._entropy_coefficient * 0.995)
 
-            is_checkpoint_save_point: bool = current_training_iteration % 200 == 0
-            is_checkpoint_save_point_not_first_step: bool = current_training_iteration > 0
-            is_end_of_training_save_point: bool = current_training_iteration == self._total_actions_taken_during_training
+            is_save_point: bool = self._is_save_point(current_training_iteration=current_training_iteration)
 
-            is_valid_save_point: bool = is_checkpoint_save_point_not_first_step and is_checkpoint_save_point or is_end_of_training_save_point
-
-            if is_valid_save_point:
+            if is_save_point:
                 self._save_checkpoint(current_training_iteration=current_training_iteration, start_time=start_time)
 
             batch_observation_tensor, batch_actions_tensor, batch_rewards_tensor, batch_length_tensor, batch_log_probability_tensor = self._rollout()
@@ -131,15 +128,29 @@ class WareHouseAgentPPO:
 
             progress_bar.update(1)
 
-            if actor_network_loss_tensor is not None and critic_network_loss_tensor is not None:
-                progress_bar.set_postfix({
-                    "actor_loss": actor_network_loss_tensor.item(),
-                    "critic_loss": critic_network_loss_tensor.item()
-                })
+            self._update_progress_bar(progress_bar=progress_bar, actor_network_loss_tensor=actor_network_loss_tensor,
+                                      critic_network_loss_tensor=critic_network_loss_tensor)
 
             current_training_iteration += 1
 
         progress_bar.close()
+
+    def _update_progress_bar(self, progress_bar: tqdm, actor_network_loss_tensor: Tensor,
+                             critic_network_loss_tensor: Tensor) -> None:
+        if actor_network_loss_tensor is not None and critic_network_loss_tensor is not None:
+            progress_bar.set_postfix({
+                "actor_loss": actor_network_loss_tensor.item(),
+                "critic_loss": critic_network_loss_tensor.item()
+            })
+
+    def _is_save_point(self, current_training_iteration: int) -> bool:
+        is_checkpoint_save_point: bool = current_training_iteration % 250 == 0
+        is_checkpoint_save_point_not_first_step: bool = current_training_iteration > 0
+        is_end_of_training_save_point: bool = current_training_iteration == self._total_actions_taken_during_training
+
+        is_save_point: bool = is_checkpoint_save_point_not_first_step and is_checkpoint_save_point or is_end_of_training_save_point
+
+        return is_save_point
 
     def _evaluate_agent(self, batch_observation_tensor: Tensor, batch_actions_tensor: Tensor) -> tuple[
         Tensor, Tensor, Tensor]:
@@ -301,6 +312,13 @@ class WareHouseAgentPPO:
         file_path: Path = self._get_file_path(current_training_iteration=current_training_iteration)
 
         checkpoint_dict: dict[str, int | OrderedDict | dict] = {
+            "clip": self._clip,
+            "learning_rate": self._learning_rate,
+            "entropy_coefficient": self._entropy_coefficient,
+            "num_updates_per_iteration": self._num_updates_per_iteration,
+            "max_time_steps_per_episode": self._max_time_steps_per_episode,
+            "total_actions_taken_during_training": self._total_actions_taken_during_training,
+            "time_steps_per_batch_before_policy_update": self._time_steps_per_batch_before_policy_update,
             "current_training_iteration": current_training_iteration,
             "actor_state_dict": self._actor_network.state_dict(),
             "critic_state_dict": self._critic_network.state_dict(),

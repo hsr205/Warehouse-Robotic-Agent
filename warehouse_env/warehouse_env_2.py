@@ -1,6 +1,7 @@
 import time
 from typing import List, Tuple
 
+import gymnasium as gym
 from gymnasium import Env
 from minigrid.core.grid import Grid
 from minigrid.core.mission import MissionSpace
@@ -11,14 +12,14 @@ from typing_extensions import SupportsFloat
 from logger.logger import AppLogger
 
 
-class WareHouseEnv(MiniGridEnv):
+class WareHouseEnv2(MiniGridEnv):
     def __init__(
             self,
-            size: int = 16,
+            size: int = 20,
             agent_start_position_tuple: tuple[int, int] = (1, 1),
             agent_start_direction: int = 0,
             max_steps: int | None = None,
-            num_obstacles: int = 2,
+            num_obstacles: int = 6,
             obstacle_positions: List[Tuple[int, int]] | None = None,
             **kwargs,
     ) -> None:
@@ -31,10 +32,8 @@ class WareHouseEnv(MiniGridEnv):
         self._is_carrying_package: bool = False
         self._package_position_list: list[tuple[int, int]] = []
 
-        # Fixed obstacle start positions if not provided
         self._initial_obstacle_positions = obstacle_positions or [(2, 6), (10, 10)]
 
-        # Will be reset each episode
         self._obstacles_list: List[dict] = []
         self._goal_position_tuple: Tuple[int, int] | None = None
 
@@ -63,71 +62,50 @@ class WareHouseEnv(MiniGridEnv):
         return "Navigate the Warehouse -> Reach The Goal"
 
     def _gen_grid(self, width: int, height: int) -> None:
-
         try:
             self._create_grid_world(width=width, height=height)
 
-            self._place_box_pickup_items()
+            self._package_position_list = [
+                (11, 12)
+            ]
 
-            # Goal position
+            for pickup_position_tuple in self._package_position_list:
+                pickup_x_coordinate, pickup_y_coordinate = pickup_position_tuple
+                self.pickup_object = Box(color="blue")
+                self.grid.set(pickup_x_coordinate, pickup_y_coordinate, self.pickup_object)
+
             self._goal_position_tuple = (width - 2, height - 2)
             self.put_obj(Goal(), *self._goal_position_tuple)
 
-            # Place dynamic obstacles
+            self._initial_obstacle_positions = [
+                (2, 4),
+                (4, 10),
+                (7, 3),
+                (12, 14),
+                (13, 6),
+                (16, 16),
+            ]
+            self._num_obstacles = len(self._initial_obstacle_positions)
             self._place_dynamic_obstacles()
 
-            # Remove grid spaces from the grid environment
-            self._remove_grid_spaces(height=height)
+            shelf_aisle_columns_list: list[int] = [3, 6, 9, 12, 15]
+            agent_crossing_rows_list: list[int] = [4, 8, 12, 16]
 
-            # Place agent
+            for column_num in shelf_aisle_columns_list:
+                for row_num in range(1, height - 1):
+                    if row_num not in agent_crossing_rows_list:
+                        self.grid.set(i=column_num, j=row_num, v=Wall())
+
             self._place_agent_at_starting_position()
 
-            self.mission = "Navigate Warehouse, Pickup Package, Reach Goal with Package"
+            self.mission = "Navigate Warehouse Grid 2, Pickup Package, Reach Goal with Package"
 
         except Exception as e:
-            self._logger.error(f"Exception thrown: {e}")
+            self._logger.error(f"Exception thrown in _gen_grid_2: {e}")
 
     def _create_grid_world(self, width: int, height: int) -> None:
         self.grid = Grid(width=width, height=height)
         self.grid.wall_rect(x=0, y=0, w=width, h=height)
-
-    def _place_box_pickup_items(self) -> None:
-        """
-        Place a single package in the warehouse for the agent to pick up.
-        """
-        self._package_position_list: list[tuple[int, int]] = [
-            # (1, 14),
-            # (2, 2),
-            # (4, 10),
-            (4, 4),
-            # (8, 4),
-            # (8, 14),
-            # (11, 8),
-            # (14, 2),
-        ]
-
-        for pickup_position_tuple in self._package_position_list:
-            pickup_x_coordinate, pickup_y_coordinate = pickup_position_tuple
-
-            self.pickup_object = Box(color="blue")
-            self.grid.set(pickup_x_coordinate, pickup_y_coordinate, self.pickup_object)
-
-    def _remove_grid_spaces(self, height: int) -> None:
-        """
-        Create a warehouse-style layout with vertical shelf aisles.
-        Gaps allow the agent and obstacles to move between aisles.
-        """
-        shelf_aisle_columns_list: list[int] = [3, 6, 9, 12]
-        agent_crossing_rows_list: list[int] = [4, 8, 12]
-
-        for column_num in shelf_aisle_columns_list:
-
-            for row_num in range(1, height - 1):
-                # is_row_first_or_last: bool = row_num == 1 or row_num == height - 2
-                # if is_row_first_or_last:
-                #     continue
-                if row_num not in agent_crossing_rows_list:
-                    self.grid.set(i=column_num, j=row_num, v=Wall())
 
     def _place_dynamic_obstacles(self) -> None:
         """
@@ -206,7 +184,6 @@ class WareHouseEnv(MiniGridEnv):
         # Move obstacles after the agent acts
         self._move_obstacles()
 
-        # Refresh observation after obstacle movement
         observation = self.gen_obs()
 
         # Case 2: obstacle moves into agent
@@ -274,7 +251,6 @@ class WareHouseEnv(MiniGridEnv):
             can_move = self._is_valid_obstacle_cell(candidate_x, candidate_y)
 
             if not can_move:
-                # Reverse direction and try once more
                 direction *= -1
                 candidate_x = old_x + direction
                 candidate_y = old_y
@@ -283,23 +259,16 @@ class WareHouseEnv(MiniGridEnv):
                     obstacle["dir"] = direction
                     continue
 
-            # Clear old obstacle cell
             if self._goal_position_tuple == (old_x, old_y):
                 self.grid.set(old_x, old_y, Goal())
             else:
                 self.grid.set(old_x, old_y, None)
 
-            # Move obstacle to new cell
             self.grid.set(candidate_x, candidate_y, obstacle["obj"])
             obstacle["pos"] = (candidate_x, candidate_y)
             obstacle["dir"] = direction
 
     def _is_valid_obstacle_cell(self, x: int, y: int) -> bool:
-        """
-        Obstacles may move into empty cells only.
-        They should not move into walls, the goal, or other occupied cells.
-        They also should not move onto the agent.
-        """
         if x <= 0 or y <= 0 or x >= self.width - 1 or y >= self.height - 1:
             return False
 
@@ -351,9 +320,9 @@ class WareHouseEnv(MiniGridEnv):
                 agent_y_coordinate - pickup_y_coordinate)
 
             if current_distance_to_pickup < previous_distance_to_pickup:
-                reward += 0.2
+                reward += 5.0
             elif current_distance_to_pickup > previous_distance_to_pickup:
-                reward -= 0.2
+                reward -= .5
 
         return reward
 
@@ -374,7 +343,7 @@ class WareHouseEnv(MiniGridEnv):
 
                 self.grid.set(i=package_x_coordinate, j=package_y_coordinate, v=None)
 
-                reward += 15.0
+                reward += 22.5
 
                 return reward
 
@@ -387,6 +356,22 @@ class WareHouseEnv(MiniGridEnv):
                 reward -= 0.2
 
                 return reward
+
+        return reward
+
+    def _add_agent_incentive_towards_goal_state(self, reward: SupportsFloat,
+                                                previous_distance_to_goal: int,
+                                                previous_agent_position_tuple: tuple[int, int]) -> SupportsFloat:
+
+        if self.agent_pos == previous_agent_position_tuple:
+            return reward
+
+        current_distance_to_goal: int = self._get_manhattan_distance(position_tuple=self._goal_position_tuple)
+
+        if current_distance_to_goal < previous_distance_to_goal:
+            reward += 7.5
+        elif current_distance_to_goal > previous_distance_to_goal:
+            reward -= 2.5
 
         return reward
 
@@ -419,22 +404,6 @@ class WareHouseEnv(MiniGridEnv):
 
         return False
 
-    def _add_agent_incentive_towards_goal_state(self, reward: SupportsFloat,
-                                                previous_distance_to_goal: int,
-                                                previous_agent_position_tuple: tuple[int, int]) -> SupportsFloat:
-
-        if self.agent_pos == previous_agent_position_tuple:
-            return reward
-
-        current_distance_to_goal: int = self._get_manhattan_distance(position_tuple=self._goal_position_tuple)
-
-        if current_distance_to_goal < previous_distance_to_goal:
-            reward += 3.0
-        elif current_distance_to_goal > previous_distance_to_goal:
-            reward -= 1.5
-
-        return reward
-
     def _get_manhattan_distance(self, position_tuple: tuple[int, int]) -> int:
         current_x_coordinate, current_y_coordinate = self.agent_pos
         x_coordinate, y_coordinate = position_tuple
@@ -442,7 +411,7 @@ class WareHouseEnv(MiniGridEnv):
         return abs(current_x_coordinate - x_coordinate) + abs(current_y_coordinate - y_coordinate)
 
     def randomly_navigate_custom_grid_world(self) -> None:
-        environment_obj: Env = WareHouseEnv(render_mode="human")
+        environment_obj: Env = WareHouseEnv2(render_mode="human")
         observation_dict, info_dict = environment_obj.reset(seed=42)
 
         for _ in range(300):

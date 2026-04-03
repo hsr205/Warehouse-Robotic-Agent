@@ -14,6 +14,7 @@ from logger.logger import AppLogger
 from models.actor_network import ActorNetwork
 from models.critic_network import CriticNetwork
 from warehouse_env.warehouse_env import WareHouseEnv
+from warehouse_env.warehouse_env_2 import WareHouseEnv2
 
 
 class WareHouseAgentPPOEvaluation:
@@ -22,7 +23,12 @@ class WareHouseAgentPPOEvaluation:
         self._learning_rate: float = 3e-4
         self._environment_obj: Env = WareHouseEnv(render_mode=None)
         self._logger = AppLogger.get_logger(self.__class__.__name__)
-        self._environment_obj_human_render_mode: Env = WareHouseEnv(render_mode='human')
+        # self._environment_obj: WareHouseEnv = WareHouseEnv(render_mode='none')
+        # self._environment_obj_human_render_mode: WareHouseEnv = WareHouseEnv(render_mode='human')
+
+        # self._environment_obj: WareHouseEnv2 = WareHouseEnv2(render_mode='none')
+        self._environment_obj_human_render_mode: WareHouseEnv2 = WareHouseEnv2(render_mode='human')
+
         # # TODO: Uncomment after testing
         # self._action_dimensions = self._environment_obj.action_space.n
 
@@ -42,7 +48,7 @@ class WareHouseAgentPPOEvaluation:
 
     def evaluate_agent(self, num_episodes: int = 10) -> list[dict[str, int | float | list]]:
 
-        num_seconds: int = 7
+        num_seconds: int = 12
         results_list: list[dict[str, int | float | list]] = []
         checkpoint_file_paths_list: list[Path] = self._get_all_checkpoint_file_paths_list()
 
