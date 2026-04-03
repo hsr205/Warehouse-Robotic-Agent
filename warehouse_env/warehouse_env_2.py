@@ -61,7 +61,6 @@ class WareHouseEnv2(MiniGridEnv):
     def _gen_mission() -> str:
         return "Navigate the Warehouse -> Reach The Goal"
 
-    # CHANGED: add this brand-new grid generator
     def _gen_grid(self, width: int, height: int) -> None:
         try:
             self._create_grid_world(width=width, height=height)
@@ -75,7 +74,6 @@ class WareHouseEnv2(MiniGridEnv):
                 self.pickup_object = Box(color="blue")
                 self.grid.set(pickup_x_coordinate, pickup_y_coordinate, self.pickup_object)
 
-            # CHANGED: keep goal near bottom-right corner
             self._goal_position_tuple = (width - 2, height - 2)
             self.put_obj(Goal(), *self._goal_position_tuple)
 
@@ -90,7 +88,6 @@ class WareHouseEnv2(MiniGridEnv):
             self._num_obstacles = len(self._initial_obstacle_positions)
             self._place_dynamic_obstacles()
 
-            # CHANGED: create more shelf columns for the larger warehouse
             shelf_aisle_columns_list: list[int] = [3, 6, 9, 12, 15]
             agent_crossing_rows_list: list[int] = [4, 8, 12, 16]
 
@@ -187,7 +184,6 @@ class WareHouseEnv2(MiniGridEnv):
         # Move obstacles after the agent acts
         self._move_obstacles()
 
-        # Refresh observation after obstacle movement
         observation = self.gen_obs()
 
         # Case 2: obstacle moves into agent
@@ -255,7 +251,6 @@ class WareHouseEnv2(MiniGridEnv):
             can_move = self._is_valid_obstacle_cell(candidate_x, candidate_y)
 
             if not can_move:
-                # Reverse direction and try once more
                 direction *= -1
                 candidate_x = old_x + direction
                 candidate_y = old_y
@@ -264,13 +259,11 @@ class WareHouseEnv2(MiniGridEnv):
                     obstacle["dir"] = direction
                     continue
 
-            # Clear old obstacle cell
             if self._goal_position_tuple == (old_x, old_y):
                 self.grid.set(old_x, old_y, Goal())
             else:
                 self.grid.set(old_x, old_y, None)
 
-            # Move obstacle to new cell
             self.grid.set(candidate_x, candidate_y, obstacle["obj"])
             obstacle["pos"] = (candidate_x, candidate_y)
             obstacle["dir"] = direction
