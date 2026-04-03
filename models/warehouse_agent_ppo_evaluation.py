@@ -14,7 +14,7 @@ from logger.logger import AppLogger
 from models.actor_network import ActorNetwork
 from models.critic_network import CriticNetwork
 from warehouse_env.warehouse_env import WareHouseEnv
-from warehouse_env.warehouse_env_2 import WareHouseEnv2
+from warehouse_env.warehouse_env_3 import WareHouseEnv3
 
 
 class WareHouseAgentPPOEvaluation:
@@ -27,7 +27,10 @@ class WareHouseAgentPPOEvaluation:
         # self._environment_obj_human_render_mode: WareHouseEnv = WareHouseEnv(render_mode='human')
 
         # self._environment_obj: WareHouseEnv2 = WareHouseEnv2(render_mode='none')
-        self._environment_obj_human_render_mode: WareHouseEnv2 = WareHouseEnv2(render_mode='human')
+        # self._environment_obj_human_render_mode: WareHouseEnv2 = WareHouseEnv2(render_mode='human')
+
+        # self._environment_obj: WareHouseEnv3 = WareHouseEnv3(render_mode='none')
+        self._environment_obj_human_render_mode: WareHouseEnv3 = WareHouseEnv3(render_mode='human')
 
         # # TODO: Uncomment after testing
         # self._action_dimensions = self._environment_obj.action_space.n
