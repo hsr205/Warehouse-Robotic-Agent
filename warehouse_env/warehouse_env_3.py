@@ -1,7 +1,6 @@
 import time
 from typing import List, Tuple
 
-import gymnasium as gym
 from gymnasium import Env
 from minigrid.core.grid import Grid
 from minigrid.core.mission import MissionSpace
@@ -81,18 +80,15 @@ class WareHouseEnv3(MiniGridEnv):
 
             # More obstacles, placed in awkward corridors
             self._initial_obstacle_positions = [
-                (3, 3),
                 (5, 7),
                 (8, 4),
                 (10, 13),
-                (12, 6),
+                # (12, 6),
                 (14, 17),
                 (16, 8),
-                (18, 15),
+                # (18, 15),
                 (19, 5),
-                (20, 12),
-                (6, 18),
-                (9, 20),
+                # (20, 12),
             ]
             self._num_obstacles = len(self._initial_obstacle_positions)
             self._place_dynamic_obstacles()
@@ -121,7 +117,7 @@ class WareHouseEnv3(MiniGridEnv):
             (3, 1, height - 2, {2, 9, 17}),
             (6, 2, height - 3, {5, 13, 19}),
             (9, 1, height - 4, {4, 10, 15}),
-            (13, 3, height - 2, {6, 14}),
+            # (13, 3, height - 2, {6, 14}),
             # (17, 1, height - 5, {8, 18}),
             # (20, 2, height - 2, {7, 16}),
         ]
@@ -131,19 +127,32 @@ class WareHouseEnv3(MiniGridEnv):
                 if y_coordinate not in openings:
                     self.grid.set(x_coordinate, y_coordinate, Wall())
 
-
         # ---------------------------
         # Strange isolated wall chunks
         # ---------------------------
         isolated_wall_positions: list[tuple[int, int]] = [
-            (2, 14), (2, 15),
-            (4, 14),
-            (7, 11), (7, 12), (7, 13),
             (11, 18), (12, 18),
-            (15, 4), (15, 5),
-            (18, 10), (19, 10),
+            (13, 5), (14, 4),
+            (13, 8), (14, 7),
+
+            (13, 10),
+            (14, 11),
+            (13, 12),
+            (14, 13),
+            (13, 14),
+            (14, 15),
+
+            (18, 9),
+            (19, 10),
+            (20, 9),
+            (18, 11),
+            (20, 11),
+
+            (17, 19),
+
+            (16, 2), (17, 3), (18, 2),
             (21, 20), (21, 21),
-            (14, 21), (15, 21), (16, 21),
+            (12, 20), (13, 21), (14, 20),
         ]
 
         for x_coordinate, y_coordinate in isolated_wall_positions:
@@ -159,11 +168,7 @@ class WareHouseEnv3(MiniGridEnv):
             (width - 5, height - 8),
             (width - 4, height - 8),
             (width - 7, height - 7),
-            (width - 7, height - 6),
-            (width - 4, height - 6),
-            (width - 4, height - 5),
-            (width - 6, height - 4),
-            (width - 5, height - 4),
+            (width - 7, height - 6)
         ]
 
         for x_coordinate, y_coordinate in package_zone_walls:
