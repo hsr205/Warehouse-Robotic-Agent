@@ -29,8 +29,8 @@ class WareHouseAgentPPO:
         self._entropy_coefficient: float = 0.075
         self._num_updates_per_iteration: int = 5
         self._max_time_steps_per_episode: int = 100
-        self._total_actions_taken_during_training: int = 3_000
-        self._time_steps_per_batch_before_policy_update: int = 6_000
+        self._total_actions_taken_during_training: int = 5_000
+        self._time_steps_per_batch_before_policy_update: int = 10_000
         # self._environment_obj: WareHouseEnv = WareHouseEnv(render_mode=None)
         # self._environment_obj: WareHouseEnv2 = WareHouseEnv2(render_mode=None)
         self._environment_obj: WareHouseEnv3 = WareHouseEnv3(render_mode=None)
@@ -146,7 +146,7 @@ class WareHouseAgentPPO:
             })
 
     def _is_save_point(self, current_training_iteration: int) -> bool:
-        is_checkpoint_save_point: bool = current_training_iteration % 250 == 0
+        is_checkpoint_save_point: bool = current_training_iteration % 500 == 0
         is_checkpoint_save_point_not_first_step: bool = current_training_iteration > 0
         is_end_of_training_save_point: bool = current_training_iteration == self._total_actions_taken_during_training
 
