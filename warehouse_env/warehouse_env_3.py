@@ -279,7 +279,7 @@ class WareHouseEnv3(MiniGridEnv):
         reward = self._agent_incentive_to_pickup_package(reward=reward, action_int=action_int)
 
         if self._agent_reaches_goal_state() and self._is_carrying_package:
-            reward = 50
+            reward = 70
             is_terminated = True
             info["collision"] = False
             self._is_carrying_package = False
