@@ -29,8 +29,8 @@ class WareHouseAgentPPO:
         self._entropy_coefficient: float = 0.075
         self._num_updates_per_iteration: int = 5
         self._max_time_steps_per_episode: int = 100
-        self._total_actions_taken_during_training: int = 3_000
-        self._time_steps_per_batch_before_policy_update: int = 6_000
+        self._total_actions_taken_during_training: int = 2_500
+        self._time_steps_per_batch_before_policy_update: int = 5_000
         # self._environment_obj: WareHouseEnv = WareHouseEnv(render_mode=None)
         # self._environment_obj: WareHouseEnv2 = WareHouseEnv2(render_mode=None)
         self._environment_obj: WareHouseEnv3 = WareHouseEnv3(render_mode=None)
