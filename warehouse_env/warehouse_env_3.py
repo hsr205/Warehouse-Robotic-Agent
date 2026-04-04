@@ -157,13 +157,12 @@ class WareHouseEnv3(MiniGridEnv):
 
 
             # NOTE - Remove for most working_demo_checkpoint_files_env_3/ files
-            (3, 17),
-            (8, 22),
+            # (8, 22),
             (16, 22),
-            (18, 21),
+            # (18, 21),
             (19, 20),
             (22, 10),
-            (22, 4),
+            # (22, 4),
             (17, 7),
             (18, 6),
             (19, 7),
