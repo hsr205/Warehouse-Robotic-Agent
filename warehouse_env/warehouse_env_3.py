@@ -155,7 +155,6 @@ class WareHouseEnv3(MiniGridEnv):
             (21, 20), (21, 21),
             (12, 20), (13, 21), (14, 20),
 
-
             # NOTE - Remove for most working_demo_checkpoint_files_env_3/ files
             # (8, 22),
             (16, 22),
@@ -279,7 +278,7 @@ class WareHouseEnv3(MiniGridEnv):
         reward = self._agent_incentive_to_pickup_package(reward=reward, action_int=action_int)
 
         if self._agent_reaches_goal_state() and self._is_carrying_package:
-            reward = 70
+            reward = 100
             is_terminated = True
             info["collision"] = False
             self._is_carrying_package = False
