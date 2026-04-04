@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import torch
@@ -13,7 +14,7 @@ from tqdm import tqdm
 from logger.logger import AppLogger
 from models.actor_network import ActorNetwork
 from models.critic_network import CriticNetwork
-from warehouse_env.warehouse_env_2 import WareHouseEnv2
+from warehouse_env.warehouse_env_3 import WareHouseEnv3
 
 
 class WareHouseAgentPPO:
@@ -29,9 +30,10 @@ class WareHouseAgentPPO:
         self._num_updates_per_iteration: int = 5
         self._max_time_steps_per_episode: int = 100
         self._total_actions_taken_during_training: int = 2_000
-        self._time_steps_per_batch_before_policy_update: int = 3_000
+        self._time_steps_per_batch_before_policy_update: int = 4_000
         # self._environment_obj: WareHouseEnv = WareHouseEnv(render_mode=None)
-        self._environment_obj: WareHouseEnv2 = WareHouseEnv2(render_mode=None)
+        # self._environment_obj: WareHouseEnv2 = WareHouseEnv2(render_mode=None)
+        self._environment_obj: WareHouseEnv3 = WareHouseEnv3(render_mode=None)
         self._logger = AppLogger.get_logger(self.__class__.__name__)
         # # TODO: Uncomment after testing
         # self._action_dimensions = self._environment_obj.action_space.n
@@ -54,7 +56,7 @@ class WareHouseAgentPPO:
     def train_agent(self) -> None:
 
         current_training_iteration: int = 0
-        start_time: datetime = datetime.now()
+        start_time: datetime = datetime.now(ZoneInfo("America/New_York"))
         progress_bar: tqdm = tqdm(total=self._total_actions_taken_during_training, desc="Training Warehouse PPO Agent")
 
         while current_training_iteration <= self._total_actions_taken_during_training:
@@ -144,7 +146,7 @@ class WareHouseAgentPPO:
             })
 
     def _is_save_point(self, current_training_iteration: int) -> bool:
-        is_checkpoint_save_point: bool = current_training_iteration % 250 == 0
+        is_checkpoint_save_point: bool = current_training_iteration % 500 == 0
         is_checkpoint_save_point_not_first_step: bool = current_training_iteration > 0
         is_end_of_training_save_point: bool = current_training_iteration == self._total_actions_taken_during_training
 
@@ -333,9 +335,9 @@ class WareHouseAgentPPO:
     def _display_save_checkpoint_logger_statements(self, file_path: Path, start_time: datetime) -> None:
         self._logger.info("\n")
         self._logger.info("=" * 100)
-        now = datetime.now()
-        formatted_start_time = start_time.strftime("%b-%d, %H:%M:%S")
-        formatted_current_time = now.strftime("%b-%d, %H:%M:%S")
+        now = datetime.now(ZoneInfo("America/New_York"))
+        formatted_start_time = start_time.strftime("%b-%d, %I:%M:%S %p")
+        formatted_current_time = now.strftime("%b-%d, %I:%M:%S %p")
         self._logger.info(f"Start Time: {formatted_start_time}")
         self._logger.info(f"Current Time: {formatted_current_time}")
         self._logger.info(f"Successfully saved: {file_path}")
