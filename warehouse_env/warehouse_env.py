@@ -29,7 +29,7 @@ class WareHouseEnv(MiniGridEnv):
         mission_space: MissionSpace = MissionSpace(mission_func=self._gen_mission)
 
         if max_steps is None:
-            max_steps = 50
+            max_steps = 4 * (size ** 2) #increased this
 
         self._logger = AppLogger.get_logger(self.__class__.__name__)
 
@@ -90,7 +90,7 @@ class WareHouseEnv(MiniGridEnv):
         )
 
         if is_blocked_forward:
-            reward -= 0.5
+            reward -= .5
             info["collision"] = True
         else:
             info["collision"] = False
@@ -101,7 +101,7 @@ class WareHouseEnv(MiniGridEnv):
         )
 
         if self._agent_reaches_goal_state():
-            reward += 10.0
+            reward += 12.5
             is_terminated = True
 
         return observation, reward, is_terminated, is_truncated, info
@@ -127,7 +127,8 @@ class WareHouseEnv(MiniGridEnv):
         )
 
         if current_distance_to_goal < previous_distance_to_goal:
-            reward += 0.30
+            reward += 1
+            #reward += 0.05
         elif current_distance_to_goal > previous_distance_to_goal:
             reward -= 0.10
         else:

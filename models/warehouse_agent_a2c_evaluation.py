@@ -46,11 +46,11 @@ class WareHouseAgentA2CEvaluation:
     def evaluate_agent(self, num_episodes: int = 10, render_human: bool = True) -> dict[str, int | float | list]:
         checkpoint_path: Path = Path("model_weights_a2c")
 
-        if checkpoint_path.is_dir():
-            checkpoint_files = sorted(checkpoint_path.glob("*.pt"), key=lambda p: p.stat().st_mtime)
-            if len(checkpoint_files) == 0:
-                raise FileNotFoundError("No A2C checkpoint files found in model_weights_a2c/")
-            checkpoint_path = checkpoint_files[-1]
+        # if checkpoint_path.is_dir():
+        #     checkpoint_files = sorted(checkpoint_path.glob("*.pt"), key=lambda p: p.stat().st_mtime)
+        #     if len(checkpoint_files) == 0:
+        #         raise FileNotFoundError("No A2C checkpoint files found in model_weights_a2c/")
+        #     checkpoint_path = checkpoint_files[-1]
 
         checkpoint_time_step: int = self._load_checkpoint(checkpoint_path=checkpoint_path)
 
@@ -113,20 +113,20 @@ class WareHouseAgentA2CEvaluation:
             dtype=torch.float32,
             device=self._device
         )
-        with torch.no_grad():
-            action_probabilities_tensor: Tensor = self._actor_network(observation_tensor)
-
-            self._logger.info(f"action_probabilities_tensor = {action_probabilities_tensor}")
-
-            categorical_distribution: Categorical = Categorical(probs=action_probabilities_tensor)
-            action_tensor: Tensor = categorical_distribution.sample()
-            
         # with torch.no_grad():
         #     action_probabilities_tensor: Tensor = self._actor_network(observation_tensor)
 
         #     self._logger.info(f"action_probabilities_tensor = {action_probabilities_tensor}")
 
-        #     action_tensor: Tensor = torch.argmax(action_probabilities_tensor, dim=-1)
+        #     categorical_distribution: Categorical = Categorical(probs=action_probabilities_tensor)
+        #     action_tensor: Tensor = categorical_distribution.sample()
+            
+        with torch.no_grad():
+            action_probabilities_tensor: Tensor = self._actor_network(observation_tensor)
+
+            self._logger.info(f"action_probabilities_tensor = {action_probabilities_tensor}")
+
+            action_tensor: Tensor = torch.argmax(action_probabilities_tensor, dim=-1)
 
         return int(action_tensor.item())
 

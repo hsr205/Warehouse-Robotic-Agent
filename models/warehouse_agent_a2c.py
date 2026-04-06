@@ -21,12 +21,12 @@ class WareHouseAgentA2C:
     def __init__(self) -> None:
         self._gamma: float = 0.95
         self._learning_rate: float = 3e-4
-        self._entropy_coefficient: float = 0.05#higher = more exploring 
+        self._entropy_coefficient: float = 0.055 #higher = more exploring 
         self._critic_coefficient: float = 0.5
 
-        self._total_training_iterations: int = 300
-        self._time_steps_per_batch: int = 200
-        self._max_time_steps_per_episode: int = 50
+        self._total_training_iterations: int = 1_000
+        self._time_steps_per_batch: int = 5_000
+        self._max_time_steps_per_episode: int = 2_500
 
         self._environment_obj: Env = WareHouseEnv(render_mode=None)
         self._logger = AppLogger.get_logger(self.__class__.__name__)
@@ -60,16 +60,19 @@ class WareHouseAgentA2C:
             desc="Training Warehouse A2C Agent"
         )
 
-        for current_training_iteration in range(self._total_training_iterations + 1):
-
-            if current_training_iteration > 0 and current_training_iteration % 50 == 0:
+        for current_training_iteration in range(self._total_training_iterations):
+            
+            if current_training_iteration > 0 and current_training_iteration % 50 == 0 or current_training_iteration == self._total_training_iterations:
                 self._save_checkpoint(current_training_iteration=current_training_iteration)
-
             (
                 batch_observation_tensor,
                 batch_actions_tensor,
                 batch_returns_tensor,
+                batch_episode_rewards_list,
+                batch_episode_lengths_list,
+                batch_episode_successes_list,
             ) = self._rollout()
+            
 
             state_values_tensor: Tensor = self._critic_network(batch_observation_tensor).squeeze(-1)
 
@@ -80,10 +83,11 @@ class WareHouseAgentA2C:
             categorical_distribution: Categorical = Categorical(probs=action_probabilities_tensor)
 
             log_probabilities_tensor: Tensor = categorical_distribution.log_prob(batch_actions_tensor)
-            entropy_tensor: Tensor = categorical_distribution.entropy().mean()
+            # entropy_tensor: Tensor = categorical_distribution.entropy().mean()
 
             actor_loss_tensor: Tensor = -(log_probabilities_tensor * advantage_tensor).mean()
-            actor_loss_tensor = actor_loss_tensor - self._entropy_coefficient * entropy_tensor
+            # actor_loss_tensor = actor_loss_tensor - self._entropy_coefficient * entropy_tensor
+            actor_loss_tensor = actor_loss_tensor - self._entropy_coefficient
 
             critic_loss_tensor: Tensor = torch.nn.functional.mse_loss(
                 state_values_tensor,
@@ -100,17 +104,23 @@ class WareHouseAgentA2C:
             self._actor_network_optimizer.step()
             self._critic_network_optimizer.step()
 
-            mean_return = float(batch_returns_tensor.mean().item())
-            mean_value = float(state_values_tensor.mean().item())
+            mean_return: float = batch_returns_tensor.mean().item()
+            mean_value: float = state_values_tensor.mean().item()
+            mean_episode_reward: float = sum(batch_episode_rewards_list) / len(batch_episode_rewards_list)
+            mean_episode_length: float = sum(batch_episode_lengths_list) / len(batch_episode_lengths_list)
+            success_rate: float = sum(batch_episode_successes_list) / len(batch_episode_successes_list)
 
-            self._logger.info("=" * 100)
+
             self._logger.info(
                 f"[A2C] Iteration={current_training_iteration} | "
                 f"Actor Loss={actor_loss_tensor.item():.6f} | "
                 f"Critic Loss={critic_loss_tensor.item():.6f} | "
-                f"Entropy={entropy_tensor.item():.6f} | "
-                f"Mean Return={mean_return:.6f} | "
-                f"Mean Value={mean_value:.6f}"
+                f"Entropy={self._entropy_coefficient:.6f} | "
+                # f"Mean Discounted Return={mean_return:.6f} | "
+                # f"Mean Value={mean_value:.6f} | "
+                # f"Mean Episode Reward={mean_episode_reward:.4f} | "
+                # f"Mean Episode Length={mean_episode_length:.2f} | "
+                # f"Success Rate={success_rate:.2f}"
             )
             self._logger.info("=" * 100)
 
@@ -119,15 +129,26 @@ class WareHouseAgentA2C:
         progress_bar.close()
         self._environment_obj.close()
 
-    def _rollout(self) -> tuple[Tensor, Tensor, Tensor]:
+    def _rollout(self) -> tuple[Tensor, Tensor, Tensor, list[float], list[int], list[int]]:
         current_time_step: int = 0
 
         batch_observation_list: list[dict] = []
         batch_actions_list: list[int] = []
         batch_rewards_list: list[list[float]] = []
 
+        # ADD THESE
+        batch_episode_rewards_list: list[float] = []
+        batch_episode_lengths_list: list[int] = []
+        batch_episode_successes_list: list[int] = []
+
         while current_time_step < self._time_steps_per_batch:
             episode_rewards_list: list[float] = []
+
+            # ADD THESE
+            episode_total_reward: float = 0.0
+            episode_length: int = 0
+            episode_success: int = 0
+
             observation_dict, info_dict = self._environment_obj.reset(seed=42 + current_time_step)
 
             for _ in range(self._max_time_steps_per_episode):
@@ -142,26 +163,38 @@ class WareHouseAgentA2C:
                     action_int
                 )
 
-                if info_dict.get("collision", False):
-                    self._logger.info(
-                        f"[TRAIN WALL COLLISION] action={action_int} | reward={reward:.2f} | "
-                        f"pos={self._environment_obj.agent_pos} | dir={self._environment_obj.agent_dir}"
-                    )
+                # if info_dict.get("collision", False):
+                #     self._logger.info(
+                #         f"[TRAIN WALL COLLISION] action={action_int} | reward={reward:.2f} | "
+                #         f"pos={self._environment_obj.agent_pos} | dir={self._environment_obj.agent_dir}"
+                #     )
 
-                if self._environment_obj.agent_pos == (3, 1):
-                    self._logger.info(
-                        f"[TRAIN AT WALL] action={action_int} | reward={reward:.2f} | "
-                        f"pos={self._environment_obj.agent_pos} | dir={self._environment_obj.agent_dir}"
-                    )
+                # if self._environment_obj.agent_pos == (3, 1):
+                #     self._logger.info(
+                #         f"[TRAIN AT WALL] action={action_int} | reward={reward:.2f} | "
+                #         f"pos={self._environment_obj.agent_pos} | dir={self._environment_obj.agent_dir}"
+                #     )
+
                 batch_actions_list.append(action_int)
                 episode_rewards_list.append(float(reward))
 
-                current_time_step += 1
+                # ADD THESE
+                episode_total_reward += float(reward)
+                episode_length += 1
 
+                current_time_step += 1
+                if is_terminated:
+                    episode_success = 1
+               
                 if is_terminated or is_truncated:
                     break
 
             batch_rewards_list.append(episode_rewards_list)
+
+            # ADD THESE
+            batch_episode_rewards_list.append(episode_total_reward)
+            batch_episode_lengths_list.append(episode_length)
+            batch_episode_successes_list.append(episode_success)
 
         batch_observation_tensor: Tensor = self._get_observations_tensor(
             batch_observation_list=batch_observation_list
@@ -177,7 +210,17 @@ class WareHouseAgentA2C:
             batch_rewards_list=batch_rewards_list
         )
 
-        return batch_observation_tensor, batch_actions_tensor, batch_returns_tensor
+        return (
+            batch_observation_tensor,
+            batch_actions_tensor,
+            batch_returns_tensor,
+            batch_episode_rewards_list,
+            batch_episode_lengths_list,
+            batch_episode_successes_list,
+        )
+       
+
+   
 
     def _get_action(self, observation_dict: dict) -> int:
         observation_image_array: np.ndarray = observation_dict.get("image")
@@ -245,6 +288,7 @@ class WareHouseAgentA2C:
         return (input_tensor - input_tensor.mean()) / (input_tensor.std() + 1e-10)
 
     def _save_checkpoint(self, current_training_iteration: int) -> None:
+
         file_path: Path = self._get_file_path(current_training_iteration=current_training_iteration)
 
         checkpoint_dict: dict[str, int | OrderedDict | dict] = {
@@ -265,6 +309,10 @@ class WareHouseAgentA2C:
     def _get_file_path(self, current_training_iteration: int) -> Path:
         model_weights_directory_path: Path = Path("model_weights_a2c")
         model_weights_directory_path.mkdir(parents=True, exist_ok=True)
+        
+        self._logger.info("=" * 100)
+        self._logger.info(f"Successfully created directory: {model_weights_directory_path}")
+        self._logger.info("=" * 100)
 
         timestamp_string: str = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
         filename: str = f"a2c_checkpoint_step_{current_training_iteration}_{timestamp_string}.pt"
