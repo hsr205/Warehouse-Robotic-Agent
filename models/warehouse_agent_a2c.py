@@ -21,12 +21,12 @@ class WareHouseAgentA2C:
     def __init__(self) -> None:
         self._gamma: float = 0.95
         self._learning_rate: float = 3e-4
-        self._entropy_coefficient: float = 0.01 #higher = more exploring 
+        self._entropy_coefficient: float = 0.05#higher = more exploring 
         self._critic_coefficient: float = 0.5
 
-        self._total_training_iterations: int = 100
-        self._time_steps_per_batch: int = 1000
-        self._max_time_steps_per_episode: int = 2000
+        self._total_training_iterations: int = 300
+        self._time_steps_per_batch: int = 200
+        self._max_time_steps_per_episode: int = 50
 
         self._environment_obj: Env = WareHouseEnv(render_mode=None)
         self._logger = AppLogger.get_logger(self.__class__.__name__)
@@ -142,6 +142,17 @@ class WareHouseAgentA2C:
                     action_int
                 )
 
+                if info_dict.get("collision", False):
+                    self._logger.info(
+                        f"[TRAIN WALL COLLISION] action={action_int} | reward={reward:.2f} | "
+                        f"pos={self._environment_obj.agent_pos} | dir={self._environment_obj.agent_dir}"
+                    )
+
+                if self._environment_obj.agent_pos == (3, 1):
+                    self._logger.info(
+                        f"[TRAIN AT WALL] action={action_int} | reward={reward:.2f} | "
+                        f"pos={self._environment_obj.agent_pos} | dir={self._environment_obj.agent_dir}"
+                    )
                 batch_actions_list.append(action_int)
                 episode_rewards_list.append(float(reward))
 

@@ -14,7 +14,7 @@ from models.actor_network import ActorNetwork
 from models.critic_network import CriticNetwork
 from utils.constants import Constants
 from warehouse_env.warehouse_env import WareHouseEnv
-
+from torch.distributions import Categorical
 
 class WareHouseAgentA2CEvaluation:
     def __init__(self) -> None:
@@ -113,13 +113,20 @@ class WareHouseAgentA2CEvaluation:
             dtype=torch.float32,
             device=self._device
         )
-
         with torch.no_grad():
             action_probabilities_tensor: Tensor = self._actor_network(observation_tensor)
 
             self._logger.info(f"action_probabilities_tensor = {action_probabilities_tensor}")
 
-            action_tensor: Tensor = torch.argmax(action_probabilities_tensor, dim=-1)
+            categorical_distribution: Categorical = Categorical(probs=action_probabilities_tensor)
+            action_tensor: Tensor = categorical_distribution.sample()
+            
+        # with torch.no_grad():
+        #     action_probabilities_tensor: Tensor = self._actor_network(observation_tensor)
+
+        #     self._logger.info(f"action_probabilities_tensor = {action_probabilities_tensor}")
+
+        #     action_tensor: Tensor = torch.argmax(action_probabilities_tensor, dim=-1)
 
         return int(action_tensor.item())
 
