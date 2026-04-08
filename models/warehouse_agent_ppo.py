@@ -14,16 +14,19 @@ from tqdm import tqdm
 from logger.logger import AppLogger
 from models.actor_network import ActorNetwork
 from models.critic_network import CriticNetwork
+from warehouse_env.warehouse_env import WareHouseEnv
+from warehouse_env.warehouse_env_2 import WareHouseEnv2
 from warehouse_env.warehouse_env_3 import WareHouseEnv3
 
 
 class WareHouseAgentPPO:
 
-    def __init__(self) -> None:
+    def __init__(self, environment_obj: WareHouseEnv | WareHouseEnv2 | WareHouseEnv3) -> None:
         # NOTE: CLIP acts as a threshold for making sure our policy
         #       does not change too dramatically when conducting SGA
         self._clip: float = 0.2
         self._gamma: float = 0.95
+        self._environment_obj = environment_obj
 
         self._learning_rate: float = 3e-4
         self._entropy_coefficient: float = 0.075
@@ -31,18 +34,11 @@ class WareHouseAgentPPO:
         self._max_time_steps_per_episode: int = 100
         self._total_actions_taken_during_training: int = 2_500
         self._time_steps_per_batch_before_policy_update: int = 5_000
-        # self._environment_obj: WareHouseEnv = WareHouseEnv(render_mode=None)
-        # self._environment_obj: WareHouseEnv2 = WareHouseEnv2(render_mode=None)
-        self._environment_obj: WareHouseEnv3 = WareHouseEnv3(render_mode=None)
         self._logger = AppLogger.get_logger(self.__class__.__name__)
-        # # TODO: Uncomment after testing
-        # self._action_dimensions = self._environment_obj.action_space.n
 
-        # TODO: Remove after testing
         self._action_dimensions = self._environment_obj.action_space = Discrete(4).n
 
         self._device = self._get_device()
-
         self._actor_network: ActorNetwork = ActorNetwork(output_dimensions=self._action_dimensions,
                                                          device=self._device)
         self._critic_network: CriticNetwork = CriticNetwork(device=self._device)
@@ -345,7 +341,8 @@ class WareHouseAgentPPO:
 
     def _get_file_path(self, current_training_iteration: int) -> Path:
 
-        model_weights_directory_path: Path = Path("model_weights")
+        model_weights_directory_path: Path = self._get_directory_path()
+
         model_weights_directory_path.mkdir(parents=True, exist_ok=True)
         timestamp_string: str = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 
@@ -353,6 +350,21 @@ class WareHouseAgentPPO:
         checkpoint_path: Path = model_weights_directory_path / filename
 
         return checkpoint_path
+
+    def _get_directory_path(self) -> Path:
+
+        directory_path: Path = Path("model_weights")
+
+        if isinstance(self._environment_obj, WareHouseEnv):
+            directory_path = Path("model_weights/warehouse_env_files_1")
+
+        elif isinstance(self._environment_obj, WareHouseEnv2):
+            directory_path = Path("model_weights/warehouse_env_files_2")
+
+        elif isinstance(self._environment_obj, WareHouseEnv3):
+            directory_path = Path("model_weights/warehouse_env_files_2")
+
+        return directory_path
 
     def _get_device(self):
         if torch.cuda.is_available():
