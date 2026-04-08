@@ -10,19 +10,35 @@ from warehouse_env.warehouse_env_3 import WareHouseEnv3
 
 def main() -> int:
     logger: Logger = AppLogger().get_logger(__name__)
-    warehouse_agent_ppo: WareHouseAgentPPO = WareHouseAgentPPO()
-    warehouse_agent_ppo_evaluation: WareHouseAgentPPOEvaluation = WareHouseAgentPPOEvaluation()
-    warehouse_env: WareHouseEnv = WareHouseEnv()
-    warehouse_env_2: WareHouseEnv2 = WareHouseEnv2()
-    warehouse_env_3: WareHouseEnv3 = WareHouseEnv3()
+
+    warehouse_env: WareHouseEnv = WareHouseEnv(render_mode='none')
+    warehouse_env_2: WareHouseEnv2 = WareHouseEnv2(render_mode='none')
+    warehouse_env_3: WareHouseEnv3 = WareHouseEnv3(render_mode='none')
+
+    warehouse_agent_ppo_warehouse_env: WareHouseAgentPPO = WareHouseAgentPPO(environment_obj=warehouse_env)
+    warehouse_agent_ppo_warehouse_env_2: WareHouseAgentPPO = WareHouseAgentPPO(environment_obj=warehouse_env_2)
+    warehouse_agent_ppo_warehouse_env_3: WareHouseAgentPPO = WareHouseAgentPPO(environment_obj=warehouse_env_3)
+
+    warehouse_agent_ppo_evaluation_warehouse_env: WareHouseAgentPPOEvaluation = WareHouseAgentPPOEvaluation(
+        environment_obj=warehouse_env)
+    warehouse_agent_ppo_evaluation_warehouse_env_2: WareHouseAgentPPOEvaluation = WareHouseAgentPPOEvaluation(
+        environment_obj=warehouse_env_2)
+    warehouse_agent_ppo_evaluation_warehouse_env_3: WareHouseAgentPPOEvaluation = WareHouseAgentPPOEvaluation(
+        environment_obj=warehouse_env_3)
 
     try:
 
         # warehouse_env.randomly_navigate_custom_grid_world()
         # warehouse_env_2.randomly_navigate_custom_grid_world()
         # warehouse_env_3.randomly_navigate_custom_grid_world()
-        warehouse_agent_ppo.train_agent()
-        # warehouse_agent_ppo_evaluation.evaluate_agent()
+
+        warehouse_agent_ppo_warehouse_env.train_agent()
+        warehouse_agent_ppo_warehouse_env_2.train_agent()
+        warehouse_agent_ppo_warehouse_env_3.train_agent()
+
+        # warehouse_agent_ppo_evaluation_warehouse_env.evaluate_agent()
+        # warehouse_agent_ppo_evaluation_warehouse_env_2.evaluate_agent()
+        # warehouse_agent_ppo_evaluation_warehouse_env_3.evaluate_agent()
 
         return 0
 
