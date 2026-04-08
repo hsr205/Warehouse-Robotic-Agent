@@ -212,7 +212,9 @@ class WareHouseEnv2(MiniGridEnv):
         if self._agent_reaches_goal_state() and self._is_carrying_package:
             # reward = 25
             # reward = 40
+            # reward = 30*
             reward = 100
+
         
 
             is_terminated = True
