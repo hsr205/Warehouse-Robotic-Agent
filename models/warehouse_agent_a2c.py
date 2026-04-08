@@ -14,26 +14,26 @@ from tqdm import tqdm
 from logger.logger import AppLogger
 from models.actor_network import ActorNetwork
 from models.critic_network import CriticNetwork
-from warehouse_env.warehouse_env import WareHouseEnv
+from warehouse_env.warehouse_env_2 import WareHouseEnv2
 
 
 class WareHouseAgentA2C:
     def __init__(self) -> None:
         self._gamma: float = 0.95
         self._learning_rate: float = 3e-4
-        self._entropy_coefficient: float = 0.055 #higher = more exploring 
+        self._entropy_coefficient: float = 0.075 #higher = more exploring 
         self._critic_coefficient: float = 0.5
 
-        self._total_training_iterations: int = 1_000
-        self._time_steps_per_batch: int = 5_000
-        self._max_time_steps_per_episode: int = 2_500
+        self._total_training_iterations: int = 1800 #1_600 #1_000
+        self._time_steps_per_batch: int =  5000 #5_000
+        self._max_time_steps_per_episode: int = 2000 #100 #2_500
 
-        self._environment_obj: Env = WareHouseEnv(render_mode=None)
+        self._environment_obj: Env = WareHouseEnv2(render_mode=None)
         self._logger = AppLogger.get_logger(self.__class__.__name__)
 
         # Keep same 3-action setup as PPO for fair comparison
         # 0 = LEFT, 1 = RIGHT, 2 = FORWARD
-        self._action_dimensions: int = Discrete(3).n
+        self._action_dimensions: int = Discrete(4).n
 
         self._device = self._get_device()
 

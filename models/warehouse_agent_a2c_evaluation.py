@@ -13,17 +13,17 @@ from logger.logger import AppLogger
 from models.actor_network import ActorNetwork
 from models.critic_network import CriticNetwork
 from utils.constants import Constants
-from warehouse_env.warehouse_env import WareHouseEnv
+from warehouse_env.warehouse_env_2 import WareHouseEnv2
 from torch.distributions import Categorical
 
 class WareHouseAgentA2CEvaluation:
     def __init__(self) -> None:
         self._learning_rate: float = 3e-4
-        self._environment_obj: Env = WareHouseEnv(render_mode=None)
-        self._environment_obj_human_render_mode: Env = WareHouseEnv(render_mode="human")
+        self._environment_obj: Env = WareHouseEnv2(render_mode=None)
+        self._environment_obj_human_render_mode: Env = WareHouseEnv2(render_mode="human")
         self._logger = AppLogger.get_logger(self.__class__.__name__)
 
-        self._action_dimensions: int = Discrete(3).n
+        self._action_dimensions: int = Discrete(4).n
         self._device = self._get_device()
 
         self._actor_network: ActorNetwork = ActorNetwork(
@@ -45,12 +45,12 @@ class WareHouseAgentA2CEvaluation:
 
     def evaluate_agent(self, num_episodes: int = 10, render_human: bool = True) -> dict[str, int | float | list]:
         checkpoint_path: Path = Path("model_weights_a2c")
-
-        # if checkpoint_path.is_dir():
-        #     checkpoint_files = sorted(checkpoint_path.glob("*.pt"), key=lambda p: p.stat().st_mtime)
-        #     if len(checkpoint_files) == 0:
-        #         raise FileNotFoundError("No A2C checkpoint files found in model_weights_a2c/")
-        #     checkpoint_path = checkpoint_files[-1]
+#####  Different than Henrys. Only uses the latest checkpoint
+        if checkpoint_path.is_dir():
+            checkpoint_files = sorted(checkpoint_path.glob("*.pt"), key=lambda p: p.stat().st_mtime)
+            if len(checkpoint_files) == 0:
+                raise FileNotFoundError("No A2C checkpoint files found in model_weights_a2c/")
+            checkpoint_path = checkpoint_files[-1]
 
         checkpoint_time_step: int = self._load_checkpoint(checkpoint_path=checkpoint_path)
 
@@ -104,6 +104,21 @@ class WareHouseAgentA2CEvaluation:
             "episode_returns": episode_returns_list,
             "episode_lengths": episode_lengths_list,
         }
+    
+    # #Henry approach 
+    # def _get_all_checkpoint_file_paths_list(self) -> list[Path]:
+    #     checkpoint_dir: Path = Path("model_weights_a2c")
+
+    #     checkpoint_paths_list: list[Path] = []
+
+    #     for file_path in checkpoint_dir.iterdir():
+    #         if file_path.is_file() and file_path.suffix == ".pt":
+    #             checkpoint_paths_list.append(file_path)
+
+    #     checkpoint_paths_list.sort(key=lambda p: p.stat().st_mtime)
+
+    #     return checkpoint_paths_list
+    # ##### End of henry approach
 
     def _get_evaluation_action(self, observation_dict: dict) -> int:
         observation_image_array: np.ndarray = observation_dict.get("image")
