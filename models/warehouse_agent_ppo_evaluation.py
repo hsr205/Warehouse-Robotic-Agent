@@ -57,7 +57,7 @@ class WareHouseAgentPPOEvaluation:
                 # observation_dict, info_dict = self._environment_obj.reset()
 
                 # TODO: Remove after testing
-                observation_dict, info_dict = self._environment_obj_human_render_mode.reset()
+                observation_dict, info_dict = self._environment_obj.reset()
 
                 is_terminated: bool = False
                 is_truncated: bool = False
@@ -91,7 +91,7 @@ class WareHouseAgentPPOEvaluation:
                     # )
 
                     # TODO: Remove after testing
-                    observation_dict, reward, is_terminated, is_truncated, info_dict = self._environment_obj_human_render_mode.step(
+                    observation_dict, reward, is_terminated, is_truncated, info_dict = self._environment_obj.step(
                         action_int
                     )
 
