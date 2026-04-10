@@ -57,8 +57,6 @@ class WareHouseAgentPPO:
 
         while current_training_iteration <= self._total_actions_taken_during_training:
 
-            # self._entropy_coefficient = max(0.005, self._entropy_coefficient * 0.995)
-
             is_save_point: bool = self._is_save_point(current_training_iteration=current_training_iteration)
 
             if is_save_point:
@@ -106,6 +104,8 @@ class WareHouseAgentPPO:
                 # NOTE: Maximizes loss through negation
                 #       this will be optimized by Adam later and will improve performance
                 # NOTE: The entropy coefficient is leverage as an exploration bonus
+                # NOTE: Un-Clipped -> r(θ)A
+                # NOTE: Clipped -> min(clip(r(θ),0.8,1.2) * advantage)
                 actor_network_loss_tensor: Tensor = -torch.min(surrogate_loss_tensor_1,
                                                                surrogate_loss_tensor_2).mean() - self._entropy_coefficient * entropy_tensor.mean()
 
