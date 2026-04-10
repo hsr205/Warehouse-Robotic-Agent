@@ -11,9 +11,9 @@ from warehouse_env.warehouse_env_3 import WareHouseEnv3
 def main() -> int:
     logger: Logger = AppLogger().get_logger(__name__)
 
-    warehouse_env: WareHouseEnv = WareHouseEnv(render_mode='none')
-    warehouse_env_2: WareHouseEnv2 = WareHouseEnv2(render_mode='none')
-    warehouse_env_3: WareHouseEnv3 = WareHouseEnv3(render_mode='none')
+    warehouse_env: WareHouseEnv = WareHouseEnv(render_mode=None)
+    warehouse_env_2: WareHouseEnv2 = WareHouseEnv2(render_mode=None)
+    warehouse_env_3: WareHouseEnv3 = WareHouseEnv3(render_mode=None)
 
     warehouse_agent_ppo_warehouse_env: WareHouseAgentPPO = WareHouseAgentPPO(environment_obj=warehouse_env)
     warehouse_agent_ppo_warehouse_env_2: WareHouseAgentPPO = WareHouseAgentPPO(environment_obj=warehouse_env_2)
