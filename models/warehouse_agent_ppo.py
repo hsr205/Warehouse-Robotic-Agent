@@ -354,19 +354,41 @@ class WareHouseAgentPPO:
         file_path: Path = self._get_file_path(file_path_str="rewards_by_time_step",
                                               current_training_iteration=current_training_iteration,
                                               file_type_str="png")
-        sns.set_theme()
-        plt.figure()
+        plt.figure(figsize=(12, 6))
 
-        sns.lineplot(
-            x=self._training_time_steps,
-            y=self._training_rewards
-        )
+        if not self._training_time_steps or not self._training_rewards:
+            self._logger.warning("No training history available to plot.")
+            return
+
+        x_values: np.ndarray = np.array(self._training_time_steps, dtype=np.int64)
+        reward_values: np.ndarray = np.array(self._training_rewards, dtype=np.float32)
+
+        # NOTE: Smooth the rewards so the chart displays the learning trend
+        moving_average_window_size: int = 1000
+
+        if len(reward_values) >= moving_average_window_size:
+            kernel: np.ndarray = np.ones(moving_average_window_size, dtype=np.float32) / moving_average_window_size
+            smoothed_rewards: np.ndarray = np.convolve(reward_values, kernel, mode="valid")
+            smoothed_x_values: np.ndarray = x_values[moving_average_window_size - 1:]
+
+            plt.plot(smoothed_x_values, smoothed_rewards, label=f"Reward Moving Average ({moving_average_window_size})")
+        else:
+            # NOTE: Fallback if not enough data for smoothing
+            plt.plot(x_values, reward_values, label="Raw Rewards")
 
         plt.xlabel("Number of Timesteps Taken")
-        plt.ylabel("Rewards")
+        plt.ylabel("Reward")
         plt.title("Rewards by Timesteps")
-
         plt.legend()
+
+        plt.tight_layout()
+
+        self._logger.info("=" * 100)
+        self._logger.info(f"Saving plot: {file_path}")
+        plt.savefig(file_path)
+        plt.close()
+        self._logger.info(f"Successfully saved plot: {file_path}")
+        self._logger.info("=" * 100)
 
         self._logger.info("=" * 100)
         self._logger.info(f"Saving plot: {file_path}")
