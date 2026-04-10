@@ -3,7 +3,9 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 import torch
 from gymnasium.spaces import Discrete
 from torch import nn, Tensor
@@ -35,6 +37,7 @@ class WareHouseAgentPPO:
         self._total_actions_taken_during_training: int = 2_500
         self._time_steps_per_batch_before_policy_update: int = 5_000
         self._logger = AppLogger.get_logger(self.__class__.__name__)
+        self._timestamp_string: str = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 
         self._action_dimensions = self._environment_obj.action_space = Discrete(4).n
 
@@ -48,6 +51,9 @@ class WareHouseAgentPPO:
 
         self._critic_network_optimizer: Adam = Adam(params=self._critic_network.parameters(),
                                                     lr=self._learning_rate)
+
+        self._training_rewards: list[float] = []
+        self._training_time_steps: list[int] = []
 
     def train_agent(self) -> None:
 
@@ -133,6 +139,10 @@ class WareHouseAgentPPO:
 
         progress_bar.close()
 
+        time_steps, _ = self.get_full_training_history()
+
+        self._logger.info(f"Final training history length: {time_steps}")
+
     def _update_progress_bar(self, progress_bar: tqdm, actor_network_loss_tensor: Tensor,
                              critic_network_loss_tensor: Tensor) -> None:
         if actor_network_loss_tensor is not None and critic_network_loss_tensor is not None:
@@ -181,6 +191,7 @@ class WareHouseAgentPPO:
         batch_observation_list: list[dict] = []
         batch_rewards_list: list[list[float]] = []
         batch_log_probability_list: list[float] = []
+        global_time_step: int = len(self._training_time_steps)
 
         while current_time_step < self._time_steps_per_batch_before_policy_update:
 
@@ -200,7 +211,13 @@ class WareHouseAgentPPO:
                 observation_dict, reward, is_terminated, is_truncated, info_dict = self._environment_obj.step(
                     action_int
                 )
+
                 is_done: bool = is_terminated or is_truncated
+
+                global_time_step += 1
+
+                self._training_time_steps.append(global_time_step)
+                self._training_rewards.append(float(reward))
 
                 episode_rewards.append(float(reward))
                 batch_actions_list.append(action_int)
@@ -307,7 +324,9 @@ class WareHouseAgentPPO:
 
     def _save_checkpoint(self, current_training_iteration: int, start_time: datetime) -> None:
 
-        file_path: Path = self._get_file_path(current_training_iteration=current_training_iteration)
+        file_path: Path = self._get_file_path(file_path_str="checkpoint_step",
+                                              current_training_iteration=current_training_iteration,
+                                              file_type_str="pt")
 
         checkpoint_dict: dict[str, int | OrderedDict | dict] = {
             "clip": self._clip,
@@ -326,7 +345,40 @@ class WareHouseAgentPPO:
 
         torch.save(checkpoint_dict, file_path)
 
+        self._plot_rewards_by_time_step(current_training_iteration=current_training_iteration)
+
         self._display_save_checkpoint_logger_statements(file_path=file_path, start_time=start_time)
+
+    def _plot_rewards_by_time_step(self, current_training_iteration) -> None:
+
+        file_path: Path = self._get_file_path(file_path_str="rewards_by_time_step",
+                                              current_training_iteration=current_training_iteration,
+                                              file_type_str="png")
+        sns.set_theme()
+        plt.figure()
+
+        sns.lineplot(
+            x=self._training_time_steps,
+            y=self._training_rewards
+        )
+
+        plt.xlabel("Number of Timesteps Taken")
+        plt.ylabel("Rewards")
+        plt.title("Rewards by Timesteps")
+
+        plt.legend()
+
+        self._logger.info("=" * 100)
+        self._logger.info(f"Saving plot: {file_path}")
+        plt.savefig(file_path)
+        self._logger.info(f"Successfully saved plot: {file_path}")
+        self._logger.info("=" * 100)
+
+    def get_full_training_history(self) -> tuple[list[int], list[float]]:
+        if len(self._training_time_steps) != len(self._training_rewards):
+            raise ValueError("Training timesteps and rewards are inconsistent")
+
+        return self._training_time_steps, self._training_rewards
 
     def _display_save_checkpoint_logger_statements(self, file_path: Path, start_time: datetime) -> None:
         self._logger.info("\n")
@@ -339,15 +391,14 @@ class WareHouseAgentPPO:
         self._logger.info(f"Successfully saved: {file_path}")
         self._logger.info("=" * 100)
 
-    def _get_file_path(self, current_training_iteration: int) -> Path:
+    def _get_file_path(self, file_path_str: str, current_training_iteration: int, file_type_str: str) -> Path:
 
         model_weights_directory_path: Path = self._get_directory_path()
 
         model_weights_directory_path.mkdir(parents=True, exist_ok=True)
-        timestamp_string: str = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 
-        filename: str = f"checkpoint_step_{current_training_iteration}_{timestamp_string}.pt"
-        checkpoint_path: Path = model_weights_directory_path / filename
+        filename_str: str = f"{file_path_str}_{current_training_iteration}_{self._timestamp_string}.{file_type_str}"
+        checkpoint_path: Path = model_weights_directory_path / filename_str
 
         return checkpoint_path
 
