@@ -247,8 +247,8 @@ class WareHouseEnv(MiniGridEnv):
                 previous_agent_position_tuple=previous_agent_position_tuple,
             )
 
-            if not was_carrying_package_before_step:
-                reward += 0.25
+            # if not was_carrying_package_before_step:
+            #     reward += 0.25
         else:
             reward = self._add_agent_incentive_to_move_toward_package(
                 reward=reward,
