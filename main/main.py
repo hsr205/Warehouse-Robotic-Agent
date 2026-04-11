@@ -16,8 +16,8 @@ def main() -> int:
     warehouse_env_3: WareHouseEnv3 = WareHouseEnv3(render_mode=None)
 
     warehouse_agent_ppo_warehouse_env: WareHouseAgentPPO = WareHouseAgentPPO(environment_obj=warehouse_env,
-                                                                             total_actions_taken_during_training_episode=1_500,
-                                                                             batch_size_before_policy_update=2_000)
+                                                                             total_actions_taken_during_training_episode=2_000,
+                                                                             batch_size_before_policy_update=4_000)
 
     warehouse_agent_ppo_warehouse_env_2: WareHouseAgentPPO = WareHouseAgentPPO(environment_obj=warehouse_env_2,
                                                                                total_actions_taken_during_training_episode=2_000,
