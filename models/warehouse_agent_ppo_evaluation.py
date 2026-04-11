@@ -4,7 +4,6 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from gymnasium import Env
 from gymnasium.spaces import Discrete
 from torch import Tensor
 from torch.optim import Adam
@@ -171,22 +170,23 @@ class WareHouseAgentPPOEvaluation:
         self._logger.info("=" * 100)
 
         self._logger.info(
-            f"Current Training Iteration: {checkpoint_dict["current_training_iteration"]:,}")
-        self._logger.info(f"Num Updates Per Episode: {checkpoint_dict["num_updates_per_iteration"]:,}")
-        self._logger.info(f"Max Time Steps Per Episode: {checkpoint_dict["max_time_steps_per_episode"]:,}")
-        self._logger.info(f"Total Actions Taken During Training Episode: {checkpoint_dict["total_actions_taken_during_training"]:,}")
+            f"Current Training Iteration: {checkpoint_dict.get("current_training_iteration", 0):,}")
+        self._logger.info(f"Num Updates Per Episode: {checkpoint_dict.get("num_updates_per_iteration", 0):,}")
+        self._logger.info(f"Max Time Steps Per Episode: {checkpoint_dict.get("max_time_steps_per_episode", 0):,}")
         self._logger.info(
-            f"Total Actions Taken During Training Episode: {checkpoint_dict["time_steps_per_batch_before_policy_update"]:,}")
+            f"Total Actions Taken During Training Episode: {checkpoint_dict.get("total_actions_taken_during_training", 0):,}")
+        self._logger.info(
+            f"Total Actions Taken During Training Episode: {checkpoint_dict.get("time_steps_per_batch_before_policy_update", 0):,}")
         self._logger.info("")
-        self._logger.info(f"Clip Value: {checkpoint_dict["clip"]}")
-        self._logger.info(f"Learning Rate: {checkpoint_dict["learning_rate"]}")
-        self._logger.info(f"Entropy Coefficient: {checkpoint_dict["entropy_coefficient"]}")
+        self._logger.info(f"Clip Value: {checkpoint_dict.get("clip", 0.0)}")
+        self._logger.info(f"Learning Rate: {checkpoint_dict.get("learning_rate", 0.0)}")
+        self._logger.info(f"Entropy Coefficient: {checkpoint_dict.get("entropy_coefficient", 0.0)}")
         self._logger.info("=" * 100)
 
-        self._actor_network.load_state_dict(checkpoint_dict["actor_state_dict"])
-        self._critic_network.load_state_dict(checkpoint_dict["critic_state_dict"])
-        self._actor_network_optimizer.load_state_dict(checkpoint_dict["actor_optimizer_state_dict"])
-        self._critic_network_optimizer.load_state_dict(checkpoint_dict["critic_optimizer_state_dict"])
+        self._actor_network.load_state_dict(checkpoint_dict.get("actor_state_dict", {}))
+        self._critic_network.load_state_dict(checkpoint_dict.get("critic_state_dict", {}))
+        self._actor_network_optimizer.load_state_dict(checkpoint_dict.get("actor_optimizer_state_dict", {}))
+        self._critic_network_optimizer.load_state_dict(checkpoint_dict.get("critic_optimizer_state_dict", {}))
 
         self._actor_network.to(self._device)
         self._critic_network.to(self._device)
