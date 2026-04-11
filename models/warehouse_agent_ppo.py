@@ -409,7 +409,6 @@ class WareHouseAgentPPO:
                                                                     critic_loss_history=self._critic_loss_history)
 
     def _display_save_checkpoint_logger_statements(self, file_path: Path, start_time: datetime) -> None:
-        self._logger.info("\n")
         self._logger.info("=" * 100)
         now = datetime.now(ZoneInfo("America/New_York"))
         formatted_start_time = start_time.strftime("%b-%d, %I:%M:%S %p")
