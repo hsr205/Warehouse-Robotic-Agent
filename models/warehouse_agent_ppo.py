@@ -5,7 +5,6 @@ from zoneinfo import ZoneInfo
 
 import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
 import torch
 from gymnasium.spaces import Discrete
 from torch import nn, Tensor
@@ -345,15 +344,20 @@ class WareHouseAgentPPO:
 
         torch.save(checkpoint_dict, file_path)
 
-        self._plot_rewards_by_time_step(current_training_iteration=current_training_iteration)
+        self._plot_rewards_by_time_step()
 
         self._display_save_checkpoint_logger_statements(file_path=file_path, start_time=start_time)
 
-    def _plot_rewards_by_time_step(self, current_training_iteration) -> None:
+    def _plot_rewards_by_time_step(self) -> None:
 
-        file_path: Path = self._get_file_path(file_path_str="rewards_by_time_step",
-                                              current_training_iteration=current_training_iteration,
-                                              file_type_str="png")
+        actual_time_step: int = self._training_time_steps[-1] if self._training_time_steps else 0
+
+        file_path: Path = self._get_file_path(
+            file_path_str="rewards_by_time_step",
+            current_training_iteration=actual_time_step,
+            file_type_str="png"
+        )
+
         plt.figure(figsize=(12, 6))
 
         if not self._training_time_steps or not self._training_rewards:
@@ -379,7 +383,6 @@ class WareHouseAgentPPO:
         plt.xlabel("Number of Timesteps Taken")
         plt.ylabel("Reward")
         plt.title("Rewards by Timesteps")
-        plt.legend()
 
         plt.tight_layout()
 
@@ -387,12 +390,6 @@ class WareHouseAgentPPO:
         self._logger.info(f"Saving plot: {file_path}")
         plt.savefig(file_path)
         plt.close()
-        self._logger.info(f"Successfully saved plot: {file_path}")
-        self._logger.info("=" * 100)
-
-        self._logger.info("=" * 100)
-        self._logger.info(f"Saving plot: {file_path}")
-        plt.savefig(file_path)
         self._logger.info(f"Successfully saved plot: {file_path}")
         self._logger.info("=" * 100)
 
