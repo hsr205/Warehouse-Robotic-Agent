@@ -16,16 +16,16 @@ def main() -> int:
     warehouse_env_3: WareHouseEnv3 = WareHouseEnv3(render_mode=None)
 
     warehouse_agent_ppo_warehouse_env: WareHouseAgentPPO = WareHouseAgentPPO(environment_obj=warehouse_env,
-                                                                             total_actions_taken_during_training=1_500,
-                                                                             time_steps_per_batch_before_policy_update=2_000)
+                                                                             total_actions_taken_during_training_episode=1_500,
+                                                                             batch_size_before_policy_update=2_000)
 
     warehouse_agent_ppo_warehouse_env_2: WareHouseAgentPPO = WareHouseAgentPPO(environment_obj=warehouse_env_2,
-                                                                               total_actions_taken_during_training=2_000,
-                                                                               time_steps_per_batch_before_policy_update=4_000)
+                                                                               total_actions_taken_during_training_episode=2_000,
+                                                                               batch_size_before_policy_update=4_000)
 
     warehouse_agent_ppo_warehouse_env_3: WareHouseAgentPPO = WareHouseAgentPPO(environment_obj=warehouse_env_3,
-                                                                               total_actions_taken_during_training=2_000,
-                                                                               time_steps_per_batch_before_policy_update=4_000)
+                                                                               total_actions_taken_during_training_episode=2_000,
+                                                                               batch_size_before_policy_update=4_000)
 
     warehouse_agent_ppo_evaluation_warehouse_env: WareHouseAgentPPOEvaluation = WareHouseAgentPPOEvaluation(
         environment_obj=warehouse_env)
