@@ -176,7 +176,7 @@ class WareHouseAgentPPOEvaluation:
         self._logger.info(
             f"Total Actions Taken During Training Episode: {checkpoint_dict.get("total_actions_taken_during_training", 0):,}")
         self._logger.info(
-            f"Total Actions Taken During Training Episode: {checkpoint_dict.get("time_steps_per_batch_before_policy_update", 0):,}")
+            f"Total Actions Taken Before Policy Update: {checkpoint_dict.get("time_steps_per_batch_before_policy_update", 0):,}")
         self._logger.info("")
         self._logger.info(f"Clip Value: {checkpoint_dict.get("clip", 0.0)}")
         self._logger.info(f"Learning Rate: {checkpoint_dict.get("learning_rate", 0.0)}")
