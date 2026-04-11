@@ -183,8 +183,6 @@ class WareHouseAgentPPOEvaluation:
         self._logger.info(f"Entropy Coefficient: {checkpoint_dict["entropy_coefficient"]}")
         self._logger.info("=" * 100)
 
-        exit()
-
         self._actor_network.load_state_dict(checkpoint_dict["actor_state_dict"])
         self._critic_network.load_state_dict(checkpoint_dict["critic_state_dict"])
         self._actor_network_optimizer.load_state_dict(checkpoint_dict["actor_optimizer_state_dict"])
