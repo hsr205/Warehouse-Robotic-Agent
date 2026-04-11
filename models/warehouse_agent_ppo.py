@@ -11,13 +11,14 @@ from torch import nn, Tensor
 from torch.distributions import Categorical
 from torch.optim import Adam
 from tqdm import tqdm
-
+from matplotlib.ticker import FuncFormatter
 from logger.logger import AppLogger
 from models.actor_network import ActorNetwork
 from models.critic_network import CriticNetwork
 from warehouse_env.warehouse_env import WareHouseEnv
 from warehouse_env.warehouse_env_2 import WareHouseEnv2
 from warehouse_env.warehouse_env_3 import WareHouseEnv3
+
 
 
 class WareHouseAgentPPO:
@@ -359,6 +360,10 @@ class WareHouseAgentPPO:
         )
 
         plt.figure(figsize=(12, 6))
+        axis = plt.gca()
+
+        axis.xaxis.set_major_formatter(FuncFormatter(self._format_large_numbers))
+        axis.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
 
         if not self._training_time_steps or not self._training_rewards:
             self._logger.warning("No training history available to plot.")
@@ -368,7 +373,7 @@ class WareHouseAgentPPO:
         reward_values: np.ndarray = np.array(self._training_rewards, dtype=np.float32)
 
         # NOTE: Smooth the rewards so the chart displays the learning trend
-        moving_average_window_size: int = 1000
+        moving_average_window_size: int = 1_000
 
         if len(reward_values) >= moving_average_window_size:
             kernel: np.ndarray = np.ones(moving_average_window_size, dtype=np.float32) / moving_average_window_size
@@ -380,9 +385,9 @@ class WareHouseAgentPPO:
             # NOTE: Fallback if not enough data for smoothing
             plt.plot(x_values, reward_values, label="Raw Rewards")
 
-        plt.xlabel("Number of Timesteps Taken")
         plt.ylabel("Reward")
-        plt.title("Rewards by Timesteps")
+        plt.xlabel("Number of Timesteps Taken")
+        plt.title("Rewards by Total Training Timesteps")
 
         plt.tight_layout()
 
@@ -392,6 +397,13 @@ class WareHouseAgentPPO:
         plt.close()
         self._logger.info(f"Successfully saved plot: {file_path}")
         self._logger.info("=" * 100)
+
+    def _format_large_numbers(self, x, pos):
+        if x >= 1_000_000:
+            return f"{x / 1_000_000:.1f}M"
+        if x >= 1_000:
+            return f"{int(x / 1_000)}k"
+        return str(int(x))
 
     def get_full_training_history(self) -> tuple[list[int], list[float]]:
         if len(self._training_time_steps) != len(self._training_rewards):
