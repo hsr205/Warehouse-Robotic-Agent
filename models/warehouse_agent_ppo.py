@@ -22,7 +22,7 @@ from warehouse_env.warehouse_env_3 import WareHouseEnv3
 
 class WareHouseAgentPPO:
 
-    def __init__(self, environment_obj: WareHouseEnv | WareHouseEnv2 | WareHouseEnv3) -> None:
+    def __init__(self, environment_obj: WareHouseEnv | WareHouseEnv2 | WareHouseEnv3, total_actions_taken_during_training:int, time_steps_per_batch_before_policy_update:int) -> None:
         # NOTE: CLIP acts as a threshold for making sure our policy
         #       does not change too dramatically when conducting SGA
         self._clip: float = 0.2
@@ -33,12 +33,12 @@ class WareHouseAgentPPO:
         self._entropy_coefficient: float = 0.075
         self._num_updates_per_iteration: int = 5
         self._max_time_steps_per_episode: int = 100
-        self._total_actions_taken_during_training: int = 2_500
-        self._time_steps_per_batch_before_policy_update: int = 5_000
         self._logger = AppLogger.get_logger(self.__class__.__name__)
         self._timestamp_string: str = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-
         self._action_dimensions = self._environment_obj.action_space = Discrete(4).n
+
+        self._total_actions_taken_during_training: int = total_actions_taken_during_training
+        self._time_steps_per_batch_before_policy_update: int = time_steps_per_batch_before_policy_update
 
         self._device = self._get_device()
         self._actor_network: ActorNetwork = ActorNetwork(output_dimensions=self._action_dimensions,
