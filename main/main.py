@@ -41,8 +41,8 @@ def main() -> int:
         # warehouse_env_3.randomly_navigate_custom_grid_world()
 
         warehouse_agent_ppo_warehouse_env.train_agent()
-        # warehouse_agent_ppo_warehouse_env_2.train_agent()
-        # warehouse_agent_ppo_warehouse_env_3.train_agent()
+        warehouse_agent_ppo_warehouse_env_2.train_agent()
+        warehouse_agent_ppo_warehouse_env_3.train_agent()
 
         # warehouse_agent_ppo_evaluation_warehouse_env.evaluate_agent()
         # warehouse_agent_ppo_evaluation_warehouse_env_2.evaluate_agent()
