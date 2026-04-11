@@ -343,7 +343,7 @@ class WareHouseEnv2(MiniGridEnv):
 
                 self.grid.set(i=package_x_coordinate, j=package_y_coordinate, v=None)
 
-                reward += 22.5
+                reward += 27.5
 
                 return reward
 
