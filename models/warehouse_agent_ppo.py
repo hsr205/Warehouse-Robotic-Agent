@@ -3,7 +3,6 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from gymnasium.spaces import Discrete
@@ -11,19 +10,20 @@ from torch import nn, Tensor
 from torch.distributions import Categorical
 from torch.optim import Adam
 from tqdm import tqdm
-from matplotlib.ticker import FuncFormatter
+
 from logger.logger import AppLogger
 from models.actor_network import ActorNetwork
 from models.critic_network import CriticNetwork
+from utils.model_plotting import ModelPlotting
 from warehouse_env.warehouse_env import WareHouseEnv
 from warehouse_env.warehouse_env_2 import WareHouseEnv2
 from warehouse_env.warehouse_env_3 import WareHouseEnv3
 
 
-
 class WareHouseAgentPPO:
 
-    def __init__(self, environment_obj: WareHouseEnv | WareHouseEnv2 | WareHouseEnv3, total_actions_taken_during_training_episode:int, batch_size_before_policy_update:int) -> None:
+    def __init__(self, environment_obj: WareHouseEnv | WareHouseEnv2 | WareHouseEnv3,
+                 total_actions_taken_during_training_episode: int, batch_size_before_policy_update: int) -> None:
         # NOTE: CLIP acts as a threshold for making sure our policy
         #       does not change too dramatically when conducting SGA
         self._clip: float = 0.2
@@ -52,8 +52,17 @@ class WareHouseAgentPPO:
         self._critic_network_optimizer: Adam = Adam(params=self._critic_network.parameters(),
                                                     lr=self._learning_rate)
 
+        self._model_plotting: ModelPlotting = ModelPlotting()
+
         self._training_rewards: list[float] = []
         self._training_time_steps: list[int] = []
+
+        self._training_episode_numbers: list[int] = []
+        self._training_episode_rewards: list[float] = []
+
+        self._update_numbers: list[int] = []
+        self._actor_loss_history: list[float] = []
+        self._critic_loss_history: list[float] = []
 
     def train_agent(self) -> None:
 
@@ -85,7 +94,7 @@ class WareHouseAgentPPO:
             actor_network_loss_tensor: Tensor | None = None
             critic_network_loss_tensor: Tensor | None = None
 
-            for _ in range(0, self._num_updates_per_iteration):
+            for update_index_within_iteration in range(0, self._num_updates_per_iteration):
                 v_tensor, current_log_probabilities_tensor, entropy_tensor = self._evaluate_agent(
                     batch_observation_tensor=batch_observation_tensor,
                     batch_actions_tensor=batch_actions_tensor
@@ -130,6 +139,11 @@ class WareHouseAgentPPO:
                 critic_network_loss_tensor.backward()
                 self._critic_network_optimizer.step()
 
+                current_update_number: int = len(self._update_numbers) + 1
+                self._update_numbers.append(current_update_number)
+                self._actor_loss_history.append(actor_network_loss_tensor.item())
+                self._critic_loss_history.append(critic_network_loss_tensor.item())
+
             progress_bar.update(1)
 
             self._update_progress_bar(progress_bar=progress_bar, actor_network_loss_tensor=actor_network_loss_tensor,
@@ -138,10 +152,6 @@ class WareHouseAgentPPO:
             current_training_iteration += 1
 
         progress_bar.close()
-
-        time_steps, _ = self.get_full_training_history()
-
-        self._logger.info(f"Final training history length: {time_steps}")
 
     def _update_progress_bar(self, progress_bar: tqdm, actor_network_loss_tensor: Tensor,
                              critic_network_loss_tensor: Tensor) -> None:
@@ -192,6 +202,7 @@ class WareHouseAgentPPO:
         batch_rewards_list: list[list[float]] = []
         batch_log_probability_list: list[float] = []
         global_time_step: int = len(self._training_time_steps)
+        global_episode_number: int = len(self._training_episode_numbers)
 
         while current_time_step < self._time_steps_per_batch_before_policy_update:
 
@@ -231,6 +242,12 @@ class WareHouseAgentPPO:
 
             batch_length_list.append(episode_length + 1)
             batch_rewards_list.append(episode_rewards)
+
+            episode_total_reward: float = sum(episode_rewards)
+
+            global_episode_number += 1
+            self._training_episode_numbers.append(global_episode_number)
+            self._training_episode_rewards.append(episode_total_reward)
 
         batch_observation_tensor: Tensor = self._get_observations_tensor(batch_observation_list=batch_observation_list)
 
@@ -345,71 +362,51 @@ class WareHouseAgentPPO:
 
         torch.save(checkpoint_dict, file_path)
 
+        self._plot_rewards_by_episode()
         self._plot_rewards_by_time_step()
+        self._plot_actor_and_critic_losses_by_update()
 
         self._display_save_checkpoint_logger_statements(file_path=file_path, start_time=start_time)
 
-    def _plot_rewards_by_time_step(self) -> None:
+    def _plot_rewards_by_episode(self) -> None:
+        actual_episode_number: int = self._training_episode_numbers[-1] if self._training_episode_numbers else 0
 
+        file_path_reward_by_episode: Path = self._get_file_path(
+            file_path_str="rewards_by_episode",
+            current_training_iteration=actual_episode_number,
+            file_type_str="png"
+        )
+
+        self._model_plotting.plot_rewards_by_episode(file_path=file_path_reward_by_episode,
+                                                     training_episode_numbers=self._training_episode_numbers,
+                                                     training_episode_rewards=self._training_episode_rewards)
+
+    def _plot_rewards_by_time_step(self) -> None:
         actual_time_step: int = self._training_time_steps[-1] if self._training_time_steps else 0
 
-        file_path: Path = self._get_file_path(
+        file_path_rewards_by_timestep: Path = self._get_file_path(
             file_path_str="rewards_by_time_step",
             current_training_iteration=actual_time_step,
             file_type_str="png"
         )
 
-        plt.figure(figsize=(12, 6))
-        axis = plt.gca()
+        self._model_plotting.plot_rewards_by_time_step(file_path=file_path_rewards_by_timestep,
+                                                       training_time_steps=self._training_time_steps,
+                                                       training_rewards=self._training_rewards)
 
-        axis.xaxis.set_major_formatter(FuncFormatter(self._format_large_numbers))
-        axis.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
+    def _plot_actor_and_critic_losses_by_update(self) -> None:
 
-        if not self._training_time_steps or not self._training_rewards:
-            self._logger.warning("No training history available to plot.")
-            return
+        actual_update_number: int = self._update_numbers[-1] if self._update_numbers else 0
+        file_path_actor_critic_loss: Path = self._get_file_path(
+            file_path_str="actor_critic_losses_by_update",
+            current_training_iteration=actual_update_number,
+            file_type_str="png"
+        )
 
-        x_values: np.ndarray = np.array(self._training_time_steps, dtype=np.int64)
-        reward_values: np.ndarray = np.array(self._training_rewards, dtype=np.float32)
-
-        # NOTE: Smooth the rewards so the chart displays the learning trend
-        moving_average_window_size: int = 1_000
-
-        if len(reward_values) >= moving_average_window_size:
-            kernel: np.ndarray = np.ones(moving_average_window_size, dtype=np.float32) / moving_average_window_size
-            smoothed_rewards: np.ndarray = np.convolve(reward_values, kernel, mode="valid")
-            smoothed_x_values: np.ndarray = x_values[moving_average_window_size - 1:]
-
-            plt.plot(smoothed_x_values, smoothed_rewards, label=f"Reward Moving Average ({moving_average_window_size})")
-        else:
-            # NOTE: Fallback if not enough data for smoothing
-            plt.plot(x_values, reward_values, label="Raw Rewards")
-
-        plt.ylabel("Reward")
-        plt.xlabel("Number of Timesteps Taken")
-        plt.title("Rewards by Total Training Timesteps")
-
-        plt.tight_layout()
-
-        self._logger.info("=" * 100)
-        self._logger.info(f"Saving plot: {file_path}")
-        plt.savefig(file_path)
-        plt.close()
-        self._logger.info(f"Successfully saved plot: {file_path}")
-        self._logger.info("=" * 100)
-
-    def _format_large_numbers(self, x, pos):
-        if x >= 1_000_000:
-            return f"{x / 1_000_000:.1f}M"
-        if x >= 1_000:
-            return f"{int(x / 1_000)}k"
-        return str(int(x))
-
-    def get_full_training_history(self) -> tuple[list[int], list[float]]:
-        if len(self._training_time_steps) != len(self._training_rewards):
-            raise ValueError("Training timesteps and rewards are inconsistent")
-
-        return self._training_time_steps, self._training_rewards
+        self._model_plotting.plot_actor_and_critic_losses_by_update(file_path=file_path_actor_critic_loss,
+                                                                    update_numbers=self._update_numbers,
+                                                                    actor_loss_history=self._actor_loss_history,
+                                                                    critic_loss_history=self._critic_loss_history)
 
     def _display_save_checkpoint_logger_statements(self, file_path: Path, start_time: datetime) -> None:
         self._logger.info("\n")
