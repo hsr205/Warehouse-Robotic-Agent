@@ -20,12 +20,12 @@ def main() -> int:
                                                                              batch_size_before_policy_update=4_000)
 
     warehouse_agent_ppo_warehouse_env_2: WareHouseAgentPPO = WareHouseAgentPPO(environment_obj=warehouse_env_2,
-                                                                               total_actions_taken_during_training_episode=2_000,
-                                                                               batch_size_before_policy_update=4_000)
+                                                                               total_actions_taken_during_training_episode=3_000,
+                                                                               batch_size_before_policy_update=6_000)
 
     warehouse_agent_ppo_warehouse_env_3: WareHouseAgentPPO = WareHouseAgentPPO(environment_obj=warehouse_env_3,
-                                                                               total_actions_taken_during_training_episode=2_000,
-                                                                               batch_size_before_policy_update=4_000)
+                                                                               total_actions_taken_during_training_episode=3_000,
+                                                                               batch_size_before_policy_update=6_000)
 
     warehouse_agent_ppo_evaluation_warehouse_env: WareHouseAgentPPOEvaluation = WareHouseAgentPPOEvaluation(
         environment_obj=warehouse_env)
