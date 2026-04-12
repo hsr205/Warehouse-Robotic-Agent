@@ -12,7 +12,7 @@ def main() -> int:
     warehouse_agent_a2c_evaluation = WareHouseAgentA2CEvaluation()
 
     try:
-        warehouse_agent_a2c.train_agent()
+        # warehouse_agent_a2c.train_agent()
         results_dict = warehouse_agent_a2c_evaluation.evaluate_agent(
             num_episodes=1,
             render_human= True

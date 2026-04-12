@@ -50,7 +50,7 @@ class WareHouseAgentA2CEvaluation:
             checkpoint_files = sorted(checkpoint_path.glob("*.pt"), key=lambda p: p.stat().st_mtime)
             if len(checkpoint_files) == 0:
                 raise FileNotFoundError("No A2C checkpoint files found in model_weights_a2c/")
-            checkpoint_path = checkpoint_files[-1]
+            checkpoint_path = checkpoint_files[-50]
 
         checkpoint_time_step: int = self._load_checkpoint(checkpoint_path=checkpoint_path)
 

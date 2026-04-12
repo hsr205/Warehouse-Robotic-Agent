@@ -21,12 +21,18 @@ class WareHouseAgentA2C:
     def __init__(self) -> None:
         self._gamma: float = 0.95
         self._learning_rate: float = 3e-4
-        self._entropy_coefficient: float = 0.075 #higher = more exploring 
+        self._entropy_coefficient: float = 0.08 #higher = more exploring 
         self._critic_coefficient: float = 0.5
 
-        self._total_training_iterations: int = 1800 #1_600 #1_000
+        # This is the number of extra iterations to run after loading the
+        # resume checkpoint, not the model's total lifetime training count.
+        self._total_training_iterations: int = 8050
         self._time_steps_per_batch: int =  5000 #5_000
-        self._max_time_steps_per_episode: int = 2000 #100 #2_500
+        self._max_time_steps_per_episode: int = 500 #100 #2_500
+        self._resume_from_latest_checkpoint: bool = True
+        # Pin resume to the last pre-mask checkpoint so continuation training
+        # does not build on the bad masked-policy run.
+        self._resume_checkpoint_filename: str | None = None # "a2c_checkpoint_step_3550_2026_04_08_05_48_35.pt"
 
         self._environment_obj: Env = WareHouseEnv2(render_mode=None)
         self._logger = AppLogger.get_logger(self.__class__.__name__)
@@ -53,16 +59,24 @@ class WareHouseAgentA2C:
             params=self._critic_network.parameters(),
             lr=self._learning_rate
         )
+        self._invalid_pickup_attempt_log_count: int = 0
+        self._missed_pickup_opportunity_log_count: int = 0
 
     def train_agent(self) -> None:
+        start_iteration: int = 0
+
+        if self._resume_from_latest_checkpoint:
+            start_iteration = self._load_checkpoint_to_resume()
+
         progress_bar: tqdm = tqdm(
             total=self._total_training_iterations,
             desc="Training Warehouse A2C Agent"
         )
 
-        for current_training_iteration in range(self._total_training_iterations):
-            
-            if current_training_iteration > 0 and current_training_iteration % 50 == 0 or current_training_iteration == self._total_training_iterations:
+        for iteration_offset in range(self._total_training_iterations):
+            current_training_iteration = start_iteration + iteration_offset + 1
+             
+            if current_training_iteration > 0 and current_training_iteration % 50 == 0:
                 self._save_checkpoint(current_training_iteration=current_training_iteration)
             (
                 batch_observation_tensor,
@@ -83,11 +97,12 @@ class WareHouseAgentA2C:
             categorical_distribution: Categorical = Categorical(probs=action_probabilities_tensor)
 
             log_probabilities_tensor: Tensor = categorical_distribution.log_prob(batch_actions_tensor)
-            # entropy_tensor: Tensor = categorical_distribution.entropy().mean()
+            entropy_tensor: Tensor = categorical_distribution.entropy().mean()
 
             actor_loss_tensor: Tensor = -(log_probabilities_tensor * advantage_tensor).mean()
-            # actor_loss_tensor = actor_loss_tensor - self._entropy_coefficient * entropy_tensor
-            actor_loss_tensor = actor_loss_tensor - self._entropy_coefficient
+            # Entropy regularization keeps some exploration pressure on the
+            # policy instead of collapsing too early to one repeated action.
+            actor_loss_tensor = actor_loss_tensor - self._entropy_coefficient * entropy_tensor
 
             critic_loss_tensor: Tensor = torch.nn.functional.mse_loss(
                 state_values_tensor,
@@ -126,6 +141,9 @@ class WareHouseAgentA2C:
 
             progress_bar.update(1)
 
+        # Always save the true final resumed iteration explicitly.
+        final_training_iteration: int = start_iteration + self._total_training_iterations
+        self._save_checkpoint(current_training_iteration=final_training_iteration)
         progress_bar.close()
         self._environment_obj.close()
 
@@ -163,17 +181,30 @@ class WareHouseAgentA2C:
                     action_int
                 )
 
-                # if info_dict.get("collision", False):
-                #     self._logger.info(
-                #         f"[TRAIN WALL COLLISION] action={action_int} | reward={reward:.2f} | "
-                #         f"pos={self._environment_obj.agent_pos} | dir={self._environment_obj.agent_dir}"
-                #     )
+                if info_dict.get("valid_pickup_location", False) and info_dict.get("missed_pickup_opportunity", False):
+                    self._missed_pickup_opportunity_log_count += 1
+                    if (
+                        self._missed_pickup_opportunity_log_count <= 5
+                        or self._missed_pickup_opportunity_log_count % 250 == 0
+                    ):
+                        self._logger.info(
+                            f"[TRAIN MISSED PICKUP OPPORTUNITY #{self._missed_pickup_opportunity_log_count}] "
+                            f"action={action_int} | reward={reward:.2f} | "
+                            f"pos={self._environment_obj.agent_pos} | dir={self._environment_obj.agent_dir} | "
+                            f"missed_pickup={info_dict.get('missed_pickup_opportunity', False)}"
+                        )
 
-                # if self._environment_obj.agent_pos == (3, 1):
-                #     self._logger.info(
-                #         f"[TRAIN AT WALL] action={action_int} | reward={reward:.2f} | "
-                #         f"pos={self._environment_obj.agent_pos} | dir={self._environment_obj.agent_dir}"
-                #     )
+                if info_dict.get("invalid_pickup_attempt", False):
+                    self._invalid_pickup_attempt_log_count += 1
+                    if (
+                        self._invalid_pickup_attempt_log_count <= 3
+                        or self._invalid_pickup_attempt_log_count % 1000 == 0
+                    ):
+                        self._logger.info(
+                            f"[TRAIN INVALID PICKUP ATTEMPT #{self._invalid_pickup_attempt_log_count}] "
+                            f"action={action_int} | reward={reward:.2f} | "
+                            f"pos={self._environment_obj.agent_pos} | dir={self._environment_obj.agent_dir}"
+                        )
 
                 batch_actions_list.append(action_int)
                 episode_rewards_list.append(float(reward))
@@ -232,6 +263,7 @@ class WareHouseAgentA2C:
         )
 
         action_probabilities_tensor: Tensor = self._actor_network(observation_tensor)
+
         categorical_distribution: Categorical = Categorical(probs=action_probabilities_tensor)
 
         action_tensor: Tensor = categorical_distribution.sample()
@@ -305,6 +337,57 @@ class WareHouseAgentA2C:
         self._logger.info("=" * 100)
         self._logger.info(f"Successfully saved: {file_path}")
         self._logger.info("=" * 100)
+
+    def _load_checkpoint_to_resume(self) -> int:
+        checkpoint_directory_path: Path = Path("model_weights_a2c")
+
+        if not checkpoint_directory_path.is_dir():
+            return 0
+
+        checkpoint_paths_list: list[Path] = sorted(
+            checkpoint_directory_path.glob("*.pt"),
+            key=lambda path: path.stat().st_mtime
+        )
+
+        if len(checkpoint_paths_list) == 0:
+            return 0
+
+        checkpoint_path_to_resume: Path
+
+        if self._resume_checkpoint_filename is not None:
+            candidate_checkpoint_path = checkpoint_directory_path / self._resume_checkpoint_filename
+            if candidate_checkpoint_path.is_file():
+                checkpoint_path_to_resume = candidate_checkpoint_path
+            else:
+                self._logger.info(
+                    f"Requested resume checkpoint not found: {candidate_checkpoint_path}. "
+                    f"Falling back to latest checkpoint."
+                )
+                checkpoint_path_to_resume = checkpoint_paths_list[-1]
+        else:
+            checkpoint_path_to_resume = checkpoint_paths_list[-1]
+
+        checkpoint_dict: dict[str, int | OrderedDict | dict] = torch.load(
+            checkpoint_path_to_resume,
+            map_location=self._device
+        )
+
+        self._actor_network.load_state_dict(checkpoint_dict["actor_state_dict"])
+        self._critic_network.load_state_dict(checkpoint_dict["critic_state_dict"])
+        self._actor_network_optimizer.load_state_dict(checkpoint_dict["actor_optimizer_state_dict"])
+        self._critic_network_optimizer.load_state_dict(checkpoint_dict["critic_optimizer_state_dict"])
+
+        self._actor_network.to(self._device)
+        self._critic_network.to(self._device)
+
+        resumed_iteration: int = int(checkpoint_dict["current_training_iteration"])
+
+        self._logger.info("=" * 100)
+        self._logger.info(f"Resuming training from: {checkpoint_path_to_resume}")
+        self._logger.info(f"Starting after iteration: {resumed_iteration}")
+        self._logger.info("=" * 100)
+
+        return resumed_iteration
 
     def _get_file_path(self, current_training_iteration: int) -> Path:
         model_weights_directory_path: Path = Path("model_weights_a2c")
