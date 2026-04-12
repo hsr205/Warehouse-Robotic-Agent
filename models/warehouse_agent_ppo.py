@@ -440,7 +440,7 @@ class WareHouseAgentPPO:
             directory_path = Path("model_weights/warehouse_env_files_2")
 
         elif isinstance(self._environment_obj, WareHouseEnv3):
-            directory_path = Path("model_weights/warehouse_env_files_2")
+            directory_path = Path("model_weights/warehouse_env_files_3")
 
         return directory_path
 
