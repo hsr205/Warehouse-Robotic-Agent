@@ -14,6 +14,7 @@ from tqdm import tqdm
 from logger.logger import AppLogger
 from models.actor_network import ActorNetwork
 from models.critic_network import CriticNetwork
+from utils.training_history import TrainingHistory
 from utils.model_plotting import ModelPlotting
 from warehouse_env.warehouse_env import WareHouseEnv
 from warehouse_env.warehouse_env_2 import WareHouseEnv2
@@ -152,6 +153,15 @@ class WareHouseAgentPPO:
             current_training_iteration += 1
 
         progress_bar.close()
+
+    def get_training_history(self) -> TrainingHistory:
+        return TrainingHistory(
+            algorithm_name="PPO",
+            training_time_steps=self._training_time_steps,
+            training_rewards=self._training_rewards,
+            training_episode_numbers=self._training_episode_numbers,
+            training_episode_rewards=self._training_episode_rewards,
+        )
 
     def _update_progress_bar(self, progress_bar: tqdm, actor_network_loss_tensor: Tensor,
                              critic_network_loss_tensor: Tensor) -> None:

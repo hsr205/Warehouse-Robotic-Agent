@@ -11,6 +11,7 @@ from stable_baselines3 import A2C, DQN
 from stable_baselines3.common.monitor import Monitor
 
 from logger.logger import AppLogger
+from utils.training_history import TrainingHistory
 from utils.model_plotting import ModelPlotting
 from utils.warehouse_agent_baseline_rewards_callback import WarehouseAgentBaselineRewardsCallBack
 from utils.warehouse_environment_adapter import WarehouseEnvironmentAdapter
@@ -34,11 +35,20 @@ class WareHouseAgentBaseline:
         self._logger = AppLogger.get_logger(self.__class__.__name__)
         self._warehouse_agent_baseline_reward_callback = WarehouseAgentBaselineRewardsCallBack(
             total_time_steps=self._total_time_steps,
-            algorithm_name_str=self._algorithm_name.capitalize()
+            algorithm_name_str=self._algorithm_name.upper()
         )
 
         self._timestamp_string: str = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
         self._trained_model_file_path: Path | None = None
+
+    def get_training_history(self) -> TrainingHistory:
+        return TrainingHistory(
+            algorithm_name=self._algorithm_name.upper(),
+            training_time_steps=self._warehouse_agent_baseline_reward_callback.training_time_steps,
+            training_rewards=self._warehouse_agent_baseline_reward_callback.training_rewards,
+            training_episode_numbers=self._warehouse_agent_baseline_reward_callback.training_episode_numbers,
+            training_episode_rewards=self._warehouse_agent_baseline_reward_callback.training_episode_rewards,
+        )
 
     def train_agent(self) -> None:
         start_time: datetime = datetime.now(ZoneInfo("America/New_York"))
@@ -50,7 +60,7 @@ class WareHouseAgentBaseline:
         model = self._create_model(environment=environment)
 
         self._logger.info("=" * 100)
-        self._logger.info(f"Executing Algorithm Training: {self._algorithm_name.capitalize()}")
+        self._logger.info(f"Executing Algorithm Training: {self._algorithm_name.upper()}")
         self._logger.info(f"Total Timesteps: {self._total_time_steps:,}")
         self._logger.info("=" * 100)
 
@@ -65,11 +75,8 @@ class WareHouseAgentBaseline:
 
         self._trained_model_file_path = Path(f"{model_save_file_path}.zip")
 
-        self._plot_rewards_by_time_step()
-        self._plot_rewards_by_episode()
-
         self._logger.info("=" * 100)
-        self._logger.info(f"Completed Algorithm Training: {self._algorithm_name.capitalize()}")
+        self._logger.info(f"Completed Algorithm Training: {self._algorithm_name.upper()}")
         self._logger.info(f"Saving Model To: {model_save_file_path}")
         self._logger.info(f"Start Time: {start_time.strftime('%b-%d, %I:%M:%S %p')}")
         self._logger.info(
