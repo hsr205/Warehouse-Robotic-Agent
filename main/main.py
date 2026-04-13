@@ -1,6 +1,7 @@
 from logging import Logger
 
 from logger.logger import AppLogger
+from models.warehouse_agent_baseline import WareHouseAgentBaseline
 from models.warehouse_agent_ppo import WareHouseAgentPPO
 from models.warehouse_agent_ppo_evaluation import WareHouseAgentPPOEvaluation
 from warehouse_env.warehouse_env import WareHouseEnv
@@ -14,6 +15,9 @@ def main() -> int:
     warehouse_env: WareHouseEnv = WareHouseEnv(render_mode=None)
     warehouse_env_2: WareHouseEnv2 = WareHouseEnv2(render_mode=None)
     warehouse_env_3: WareHouseEnv3 = WareHouseEnv3(render_mode=None)
+
+    baseline_algorithms_list: list[str] = ["ac2", "dqn", "trpo"]
+    warehouse_env_list: list = [warehouse_env, warehouse_env_2, warehouse_env_3]
 
     warehouse_agent_ppo_warehouse_env: WareHouseAgentPPO = WareHouseAgentPPO(environment_obj=warehouse_env,
                                                                              total_actions_taken_during_training_episode=2_000,
@@ -39,6 +43,27 @@ def main() -> int:
         # warehouse_env.randomly_navigate_custom_grid_world()
         # warehouse_env_2.randomly_navigate_custom_grid_world()
         # warehouse_env_3.randomly_navigate_custom_grid_world()
+
+
+        for warehouse_env_obj in warehouse_env_list:
+
+            for baseline_str in baseline_algorithms_list:
+
+                total_time_steps: int = 0
+
+                if isinstance(warehouse_env, WareHouseEnv):
+                    total_time_steps = 4_000_000
+
+                if isinstance(warehouse_env_2, WareHouseEnv) or isinstance(warehouse_env_3, WareHouseEnv):
+                    total_time_steps = 18_000_000
+
+                baseline_agent = WareHouseAgentBaseline(
+                    environment_obj=warehouse_env_obj,
+                    total_time_steps=total_time_steps,
+                    algorithm_name=baseline_str,
+                )
+
+                baseline_agent.train_agent()
 
         warehouse_agent_ppo_warehouse_env.train_agent()
         warehouse_agent_ppo_warehouse_env_2.train_agent()
