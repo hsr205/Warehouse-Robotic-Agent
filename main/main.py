@@ -16,7 +16,7 @@ def main() -> int:
     warehouse_env_2: WareHouseEnv2 = WareHouseEnv2(render_mode=None)
     warehouse_env_3: WareHouseEnv3 = WareHouseEnv3(render_mode=None)
 
-    baseline_algorithms_list: list[str] = ["ac2", "dqn", "trpo"]
+    baseline_algorithms_list: list[str] = ["a2c", "dqn", "trpo"]
     warehouse_env_list: list = [warehouse_env, warehouse_env_2, warehouse_env_3]
 
     warehouse_agent_ppo_warehouse_env: WareHouseAgentPPO = WareHouseAgentPPO(environment_obj=warehouse_env,
