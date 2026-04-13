@@ -4,7 +4,7 @@ from tqdm import tqdm
 
 class WarehouseAgentBaselineRewardsCallBack(BaseCallback):
 
-    def __init__(self, total_time_steps: int, algorithm_name_str:str, verbose: int = 0) -> None:
+    def __init__(self, total_time_steps: int, algorithm_name_str: str, verbose: int = 0) -> None:
         super().__init__(verbose=verbose)
 
         self.training_time_steps: list[int] = []
@@ -13,7 +13,7 @@ class WarehouseAgentBaselineRewardsCallBack(BaseCallback):
         self.training_episode_numbers: list[int] = []
         self.training_episode_rewards: list[float] = []
         self._total_time_steps: int = total_time_steps
-        self._algorithm_name_str:str = algorithm_name_str
+        self._algorithm_name_str: str = algorithm_name_str
 
         self._current_episode_reward: float = 0.0
         self._episode_counter: int = 0
@@ -22,7 +22,7 @@ class WarehouseAgentBaselineRewardsCallBack(BaseCallback):
     def _on_training_start(self) -> None:
         self._progress_bar = tqdm(
             total=self._total_time_steps,
-            desc="Training Baseline Agent",
+            desc=f"Training Baseline Agent: {self._algorithm_name_str}",
             dynamic_ncols=True,
         )
 
