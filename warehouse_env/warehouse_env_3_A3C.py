@@ -11,7 +11,7 @@ from typing_extensions import SupportsFloat
 from logger.logger import AppLogger
 
 
-class WareHouseEnv3(MiniGridEnv):
+class WareHouseEnv3A3C(MiniGridEnv):
     def __init__(
             self,
             size: int = 24,
@@ -291,8 +291,8 @@ class WareHouseEnv3(MiniGridEnv):
                 previous_agent_position_tuple=previous_agent_position_tuple,
             )
 
-            # if not was_carrying_package_before_step:
-            #     reward += 0.25
+            if not was_carrying_package_before_step:
+                reward += 0.25
         else:
             reward = self._add_agent_incentive_to_move_toward_package(
                 reward=reward,
@@ -485,7 +485,7 @@ class WareHouseEnv3(MiniGridEnv):
         return abs(current_x_coordinate - x_coordinate) + abs(current_y_coordinate - y_coordinate)
 
     def randomly_navigate_custom_grid_world(self) -> None:
-        environment_obj: Env = WareHouseEnv3(render_mode="human")
+        environment_obj: Env = WareHouseEnv3A3C(render_mode="human")
         observation_dict, info_dict = environment_obj.reset(seed=42)
 
         for _ in range(300):

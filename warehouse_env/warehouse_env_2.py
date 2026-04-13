@@ -2,7 +2,6 @@ import time
 from typing import List, Tuple
 
 import gymnasium as gym
-import numpy as np
 from gymnasium import Env
 from minigrid.core.grid import Grid
 from minigrid.core.mission import MissionSpace
@@ -26,22 +25,17 @@ class WareHouseEnv2(MiniGridEnv):
     ) -> None:
 
         self._step_penalty: float = -0.01
-        # Dense shaping is intentionally stronger here so A2C gets a clearer
-        # signal for both reaching pickup setup states and delivering to goal.
-        self._distance_shaping_scale: float = 3.0
         self._num_obstacles = num_obstacles
         self._agent_start_direction = agent_start_direction
         self._agent_start_position_tuple = agent_start_position_tuple
 
         self._is_carrying_package: bool = False
         self._package_position_list: list[tuple[int, int]] = []
-        self._stationary_turn_count: int = 0
 
         self._initial_obstacle_positions = obstacle_positions or [(2, 6), (10, 10)]
 
         self._obstacles_list: List[dict] = []
         self._goal_position_tuple: Tuple[int, int] | None = None
-        self._last_step_info_dict: dict = {}
 
         mission_space: MissionSpace = MissionSpace(mission_func=self._gen_mission)
 
@@ -60,8 +54,6 @@ class WareHouseEnv2(MiniGridEnv):
 
     def reset(self, *, seed=None, options=None):
         self._is_carrying_package = False
-        self._stationary_turn_count = 0
-        self._last_step_info_dict = {}
         observation, info = super().reset(seed=seed, options=options)
         return observation, info
 
@@ -169,23 +161,13 @@ class WareHouseEnv2(MiniGridEnv):
         previous_distance_to_goal: int = self._get_manhattan_distance(position_tuple=self._goal_position_tuple)
 
         previous_agent_position_tuple: tuple[int, int] = self.agent_pos
-        previous_agent_direction_int: int = self.agent_dir
 
         was_carrying_package_before_step: bool = self._is_carrying_package
 
         observation, reward, is_terminated, is_truncated, info = super().step(action_int)
-        info["valid_pickup_location"] = self._is_agent_in_valid_pickup_location()
-        info["missed_pickup_opportunity"] = False
-        info["invalid_pickup_attempt"] = False
-        info["forward_collision"] = False
-        self._last_step_info_dict = info
 
         # Small step penalty to encourage efficiency
         reward += self._step_penalty
-
-        if self._is_forward_collision(action=action_int, previous_agent_pos_tuple=previous_agent_position_tuple):
-            reward -= 1.0
-            info["forward_collision"] = True
 
         # Case 1: agent moves into obstacle
         if self._agent_hits_obstacle():
@@ -229,9 +211,6 @@ class WareHouseEnv2(MiniGridEnv):
         # Case 4: agent reaches goal state
         if self._agent_reaches_goal_state() and self._is_carrying_package:
             reward = 50
-
-        
-
             is_terminated = True
             info["collision"] = False
             self._is_carrying_package = False
@@ -240,25 +219,18 @@ class WareHouseEnv2(MiniGridEnv):
         if self._is_carrying_package:
 
             reward = self._add_agent_incentive_towards_goal_state(
-                reward=reward,  
+                reward=reward,
                 previous_distance_to_goal=previous_distance_to_goal,
                 previous_agent_position_tuple=previous_agent_position_tuple,
             )
 
-            if not was_carrying_package_before_step:
-                reward += 0.25
+            # if not was_carrying_package_before_step:
+            #     reward += 0.25
         else:
             reward = self._add_agent_incentive_to_move_toward_package(
                 reward=reward,
                 previous_agent_position_tuple=previous_agent_position_tuple,
-                previous_agent_direction_int=previous_agent_direction_int,
             )
-
-        reward = self._add_stationary_turn_penalty(
-            reward=reward,
-            action_int=action_int,
-            previous_agent_position_tuple=previous_agent_position_tuple,
-        )
 
         info["collision"] = False
 
@@ -327,23 +299,8 @@ class WareHouseEnv2(MiniGridEnv):
 
         return is_forward_collision
 
-    def get_action_mask(self) -> np.ndarray:
-        """
-        Action mask for the 4-action setup:
-        0 = LEFT, 1 = RIGHT, 2 = FORWARD, 3 = PICKUP_OBJECT
-
-        Pickup is only available when the agent is facing the package from an
-        adjacent cell and is not already carrying it.
-        """
-        is_pickup_available = (not self._is_carrying_package) and self._is_agent_in_valid_pickup_location()
-        return np.array([1, 1, 1, int(is_pickup_available)], dtype=np.float32)
-
-    def _add_agent_incentive_to_move_toward_package(
-            self,
-            reward: SupportsFloat,
-            previous_agent_position_tuple: tuple[int, int],
-            previous_agent_direction_int: int,
-    ) -> SupportsFloat:
+    def _add_agent_incentive_to_move_toward_package(self, reward: SupportsFloat,
+                                                    previous_agent_position_tuple: tuple[int, int]) -> SupportsFloat:
 
         if self._is_carrying_package is True:
             return reward
@@ -351,21 +308,21 @@ class WareHouseEnv2(MiniGridEnv):
         if not self._package_position_list:
             return reward
 
-        # "Closer to package" is not enough in this task; the agent must learn
-        # to approach a state where pickup is actually legal (adjacent + facing).
-        previous_pickup_configuration_distance: float = self._get_pickup_configuration_distance(
-            agent_position_tuple=previous_agent_position_tuple,
-            agent_direction_int=previous_agent_direction_int
-        )
-        current_pickup_configuration_distance: float = self._get_pickup_configuration_distance(
-            agent_position_tuple=self.agent_pos,
-            agent_direction_int=self.agent_dir
-        )
+        agent_x_coordinate, agent_y_coordinate = previous_agent_position_tuple
 
-        distance_delta_to_pickup_configuration = (
-            previous_pickup_configuration_distance - current_pickup_configuration_distance
-        )
-        reward += self._distance_shaping_scale * distance_delta_to_pickup_configuration
+        for package_position_tuple in self._package_position_list:
+
+            pickup_x_coordinate, pickup_y_coordinate = package_position_tuple
+
+            current_distance_to_pickup: int = self._get_manhattan_distance(position_tuple=package_position_tuple)
+
+            previous_distance_to_pickup = abs(agent_x_coordinate - pickup_x_coordinate) + abs(
+                agent_y_coordinate - pickup_y_coordinate)
+
+            if current_distance_to_pickup < previous_distance_to_pickup:
+                reward += 5.0
+            elif current_distance_to_pickup > previous_distance_to_pickup:
+                reward -= .5
 
         return reward
 
@@ -386,33 +343,19 @@ class WareHouseEnv2(MiniGridEnv):
 
                 self.grid.set(i=package_x_coordinate, j=package_y_coordinate, v=None)
 
-                reward += 60
-                
+                reward += 27.5
 
                 return reward
 
             if not is_action_pickup and is_agent_in_valid_pickup_location:
-                # Missing a real pickup opportunity should be noticeably worse
-                # than a random exploratory pickup attempt elsewhere.
-                reward -= 5.0
-                self._last_step_info_dict["missed_pickup_opportunity"] = True
+                reward -= 0.25
 
                 return reward
 
             if is_action_pickup and not is_agent_in_valid_pickup_location:
-                # Invalid pickup should be clearly worse than exploring a move,
-                # but still less severe than missing a real pickup opportunity.
-                reward -= 1.0
-                self._last_step_info_dict["invalid_pickup_attempt"] = True
+                reward -= 0.2
 
                 return reward
-
-        if self._is_carrying_package and action_int == 3:
-            # Once the package is already picked up, repeating PICKUP_OBJECT is
-            # always wasted behavior and should be discouraged directly.
-            reward -= 1.0
-            self._last_step_info_dict["invalid_pickup_attempt"] = True
-            return reward
 
         return reward
 
@@ -424,34 +367,11 @@ class WareHouseEnv2(MiniGridEnv):
             return reward
 
         current_distance_to_goal: int = self._get_manhattan_distance(position_tuple=self._goal_position_tuple)
-        distance_delta_to_goal = previous_distance_to_goal - current_distance_to_goal
-        reward += self._distance_shaping_scale * distance_delta_to_goal
 
-        return reward
-
-    def _add_stationary_turn_penalty(
-            self,
-            reward: SupportsFloat,
-            action_int: int,
-            previous_agent_position_tuple: tuple[int, int],
-    ) -> SupportsFloat:
-        if not self._is_carrying_package:
-            self._stationary_turn_count = 0
-            return reward
-
-        is_turn_action: bool = action_int in (self.actions.left, self.actions.right)
-        is_stationary: bool = self.agent_pos == previous_agent_position_tuple
-
-        if is_turn_action and is_stationary:
-            self._stationary_turn_count += 1
-        else:
-            self._stationary_turn_count = 0
-            return reward
-
-        # Allow a small amount of turning for navigation, then penalize repeated
-        # in-place spinning once it becomes a clear loop.
-        if self._stationary_turn_count >= 3:
-            reward -= 1.0
+        if current_distance_to_goal < previous_distance_to_goal:
+            reward += 7.5
+        elif current_distance_to_goal > previous_distance_to_goal:
+            reward -= 2.5
 
         return reward
 
@@ -483,49 +403,6 @@ class WareHouseEnv2(MiniGridEnv):
             return True
 
         return False
-
-    @staticmethod
-    def _get_direction_distance(source_direction_int: int, target_direction_int: int) -> int:
-        clockwise_turns_int = (target_direction_int - source_direction_int) % 4
-        counterclockwise_turns_int = (source_direction_int - target_direction_int) % 4
-        return min(clockwise_turns_int, counterclockwise_turns_int)
-
-    def _get_pickup_configuration_distance(
-            self,
-            agent_position_tuple: tuple[int, int],
-            agent_direction_int: int,
-    ) -> float:
-        # Each candidate state is "one cell next to the package while facing it".
-        # We score both translation and turn cost so shaping encourages the full
-        # pickup setup, not just hovering near the package tile.
-        valid_pickup_states_list: list[tuple[tuple[int, int], int]] = []
-
-        for package_x_coordinate, package_y_coordinate in self._package_position_list:
-            valid_pickup_states_list.extend([
-                ((package_x_coordinate - 1, package_y_coordinate), 0),
-                ((package_x_coordinate + 1, package_y_coordinate), 2),
-                ((package_x_coordinate, package_y_coordinate - 1), 1),
-                ((package_x_coordinate, package_y_coordinate + 1), 3),
-            ])
-
-        distance_to_best_pickup_state_float: float = float("inf")
-
-        for pickup_position_tuple, required_direction_int in valid_pickup_states_list:
-            pickup_x_coordinate, pickup_y_coordinate = pickup_position_tuple
-            agent_x_coordinate, agent_y_coordinate = agent_position_tuple
-
-            position_distance_int = abs(agent_x_coordinate - pickup_x_coordinate) + abs(
-                agent_y_coordinate - pickup_y_coordinate
-            )
-            direction_distance_int = self._get_direction_distance(
-                source_direction_int=agent_direction_int,
-                target_direction_int=required_direction_int
-            )
-
-            total_distance_float = position_distance_int + 0.5 * direction_distance_int
-            distance_to_best_pickup_state_float = min(distance_to_best_pickup_state_float, total_distance_float)
-
-        return distance_to_best_pickup_state_float
 
     def _get_manhattan_distance(self, position_tuple: tuple[int, int]) -> int:
         current_x_coordinate, current_y_coordinate = self.agent_pos

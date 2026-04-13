@@ -1,7 +1,6 @@
 import time
 from typing import List, Tuple
 
-import gymnasium as gym
 from gymnasium import Env
 from minigrid.core.grid import Grid
 from minigrid.core.mission import MissionSpace
@@ -12,10 +11,10 @@ from typing_extensions import SupportsFloat
 from logger.logger import AppLogger
 
 
-class WareHouseEnv(MiniGridEnv):
+class WareHouseEnvA3C(MiniGridEnv):
     def __init__(
             self,
-            size: int = 12,
+            size: int = 16,
             agent_start_position_tuple: tuple[int, int] = (1, 1),
             agent_start_direction: int = 0,
             max_steps: int | None = None,
@@ -77,6 +76,9 @@ class WareHouseEnv(MiniGridEnv):
             # Place dynamic obstacles
             self._place_dynamic_obstacles()
 
+            # Remove grid spaces from the grid environment
+            self._remove_grid_spaces(height=height)
+
             # Place agent
             self._place_agent_at_starting_position()
 
@@ -97,7 +99,7 @@ class WareHouseEnv(MiniGridEnv):
             # (1, 14),
             # (2, 2),
             # (4, 10),
-            #(4, 4),
+            (4, 4),
             # (8, 4),
             # (8, 14),
             # (11, 8),
@@ -110,7 +112,7 @@ class WareHouseEnv(MiniGridEnv):
             self.pickup_object = Box(color="blue")
             self.grid.set(pickup_x_coordinate, pickup_y_coordinate, self.pickup_object)
 
-    def _add_grid_elements(self, height: int) -> None:
+    def _remove_grid_spaces(self, height: int) -> None:
         """
         Create a warehouse-style layout with vertical shelf aisles.
         Gaps allow the agent and obstacles to move between aisles.
@@ -119,7 +121,11 @@ class WareHouseEnv(MiniGridEnv):
         agent_crossing_rows_list: list[int] = [4, 8, 12]
 
         for column_num in shelf_aisle_columns_list:
+
             for row_num in range(1, height - 1):
+                # is_row_first_or_last: bool = row_num == 1 or row_num == height - 2
+                # if is_row_first_or_last:
+                #     continue
                 if row_num not in agent_crossing_rows_list:
                     self.grid.set(i=column_num, j=row_num, v=Wall())
 
@@ -181,16 +187,6 @@ class WareHouseEnv(MiniGridEnv):
         was_carrying_package_before_step: bool = self._is_carrying_package
 
         observation, reward, is_terminated, is_truncated, info = super().step(action_int)
-        is_blocked_forward: bool = self._is_forward_collision(
-            action=action_int,
-            previous_agent_pos_tuple=previous_agent_position_tuple
-        )
-
-        if is_blocked_forward:
-            reward -= 0.25
-            info["collision"] = True
-        else:
-            info["collision"] = False
 
         # Small step penalty to encourage efficiency
         reward += self._step_penalty
@@ -199,7 +195,6 @@ class WareHouseEnv(MiniGridEnv):
         if self._agent_hits_obstacle():
             reward = -2.0
             is_terminated = True
-            # is_terminated = False
             info["collision"] = True
             self._is_carrying_package = False
             return observation, reward, is_terminated, is_truncated, info
@@ -218,7 +213,6 @@ class WareHouseEnv(MiniGridEnv):
         if self._agent_hits_obstacle():
             reward = -2.0
             is_terminated = True
-            # is_terminated = False
             info["collision"] = True
             self._is_carrying_package = False
             return observation, reward, is_terminated, is_truncated, info
@@ -261,7 +255,7 @@ class WareHouseEnv(MiniGridEnv):
                 previous_agent_position_tuple=previous_agent_position_tuple,
             )
 
-        
+        info["collision"] = False
 
         return observation, reward, is_terminated, is_truncated, info
 
@@ -357,9 +351,9 @@ class WareHouseEnv(MiniGridEnv):
                 agent_y_coordinate - pickup_y_coordinate)
 
             if current_distance_to_pickup < previous_distance_to_pickup:
-                reward += 3
-            elif current_distance_to_pickup >= previous_distance_to_pickup:
-                reward -= 3
+                reward += 0.2
+            elif current_distance_to_pickup > previous_distance_to_pickup:
+                reward -= 0.2
 
         return reward
 
@@ -427,7 +421,7 @@ class WareHouseEnv(MiniGridEnv):
 
     def _add_agent_incentive_towards_goal_state(self, reward: SupportsFloat,
                                                 previous_distance_to_goal: int,
-                                                previous_agent_position_tuple:tuple[int,int]) -> SupportsFloat:
+                                                previous_agent_position_tuple: tuple[int, int]) -> SupportsFloat:
 
         if self.agent_pos == previous_agent_position_tuple:
             return reward
@@ -435,9 +429,9 @@ class WareHouseEnv(MiniGridEnv):
         current_distance_to_goal: int = self._get_manhattan_distance(position_tuple=self._goal_position_tuple)
 
         if current_distance_to_goal < previous_distance_to_goal:
-            reward += 1.0
+            reward += 3.0
         elif current_distance_to_goal > previous_distance_to_goal:
-            reward -= 1.0
+            reward -= 1.5
 
         return reward
 
@@ -448,7 +442,7 @@ class WareHouseEnv(MiniGridEnv):
         return abs(current_x_coordinate - x_coordinate) + abs(current_y_coordinate - y_coordinate)
 
     def randomly_navigate_custom_grid_world(self) -> None:
-        environment_obj: Env = WareHouseEnv(render_mode="human")
+        environment_obj: Env = WareHouseEnvA3C(render_mode="human")
         observation_dict, info_dict = environment_obj.reset(seed=42)
 
         for _ in range(300):
@@ -465,23 +459,6 @@ class WareHouseEnv(MiniGridEnv):
             )
 
             time.sleep(0.15)
-
-            if terminated_bool or truncated_bool:
-                observation_dict, info_dict = environment_obj.reset()
-
-        environment_obj.close()
-
-    def randomly_navigate_empty_grid_world(self) -> None:
-        environment_obj: Env = gym.make(id="MiniGrid-Empty-16x16-v0", render_mode="human")
-        observation_dict, info_dict = environment_obj.reset(seed=42)
-
-        for _ in range(200):
-            action_int = environment_obj.action_space.sample()
-            observation_dict, reward_float, terminated_bool, truncated_bool, info_dict = environment_obj.step(
-                action_int
-            )
-
-            time.sleep(0.1)
 
             if terminated_bool or truncated_bool:
                 observation_dict, info_dict = environment_obj.reset()
