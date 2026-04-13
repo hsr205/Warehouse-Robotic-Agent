@@ -41,7 +41,7 @@ def main() -> int:
 
 def get_total_time_steps_for_environment(environment_obj) -> int:
     if isinstance(environment_obj, WareHouseEnv):
-        return 100
+        return 4_000_000
 
     if isinstance(environment_obj, WareHouseEnv2):
         return 18_000_000
@@ -72,8 +72,8 @@ def train_all_algorithms_for_one_environment(environment_obj) -> dict[str, Train
     if isinstance(environment_obj, WareHouseEnv):
         ppo_agent: WareHouseAgentPPO = WareHouseAgentPPO(
             environment_obj=environment_obj,
-            total_actions_taken_during_training_episode=100,
-            batch_size_before_policy_update=200,
+            total_actions_taken_during_training_episode=2_000,
+            batch_size_before_policy_update=4_000,
         )
     else:
         ppo_agent = WareHouseAgentPPO(
