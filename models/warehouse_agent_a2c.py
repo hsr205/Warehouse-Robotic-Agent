@@ -14,7 +14,8 @@ from tqdm import tqdm
 from logger.logger import AppLogger
 from models.actor_network import ActorNetwork
 from models.critic_network import CriticNetwork
-from warehouse_env.warehouse_env_2 import WareHouseEnv2
+from utils.model_plotting import ModelPlotting
+from warehouse_env.warehouse_env_3_A2C import WareHouseEnv3A2C
 
 
 class WareHouseAgentA2C:
@@ -23,10 +24,11 @@ class WareHouseAgentA2C:
         self._learning_rate: float = 3e-4
         self._entropy_coefficient: float = 0.08 #higher = more exploring 
         self._critic_coefficient: float = 0.5
+        self._timestamp_string: str = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 
         # This is the number of extra iterations to run after loading the
         # resume checkpoint, not the model's total lifetime training count.
-        self._total_training_iterations: int = 8050
+        self._total_training_iterations: int = 7000
         self._time_steps_per_batch: int =  5000 #5_000
         self._max_time_steps_per_episode: int = 500 #100 #2_500
         self._resume_from_latest_checkpoint: bool = True
@@ -34,7 +36,7 @@ class WareHouseAgentA2C:
         # does not build on the bad masked-policy run.
         self._resume_checkpoint_filename: str | None = None # "a2c_checkpoint_step_3550_2026_04_08_05_48_35.pt"
 
-        self._environment_obj: Env = WareHouseEnv2(render_mode=None)
+        self._environment_obj: Env = WareHouseEnv3A2C(render_mode=None)
         self._logger = AppLogger.get_logger(self.__class__.__name__)
 
         # Keep same 3-action setup as PPO for fair comparison
@@ -59,6 +61,16 @@ class WareHouseAgentA2C:
             params=self._critic_network.parameters(),
             lr=self._learning_rate
         )
+        self._model_plotting: ModelPlotting = ModelPlotting()
+
+        self._training_rewards: list[float] = []
+        self._training_time_steps: list[int] = []
+        self._training_episode_numbers: list[int] = []
+        self._training_episode_rewards: list[float] = []
+        self._update_numbers: list[int] = []
+        self._actor_loss_history: list[float] = []
+        self._critic_loss_history: list[float] = []
+
         self._invalid_pickup_attempt_log_count: int = 0
         self._missed_pickup_opportunity_log_count: int = 0
 
@@ -75,9 +87,19 @@ class WareHouseAgentA2C:
 
         for iteration_offset in range(self._total_training_iterations):
             current_training_iteration = start_iteration + iteration_offset + 1
-             
-            if current_training_iteration > 0 and current_training_iteration % 50 == 0:
+
+            final_training_iteration: int = start_iteration + self._total_training_iterations
+            is_save_point: bool = self._is_save_point(
+                current_training_iteration=current_training_iteration,
+                final_training_iteration=final_training_iteration
+            )
+
+            if is_save_point:
                 self._save_checkpoint(current_training_iteration=current_training_iteration)
+                self._plot_rewards_by_episode()
+                self._plot_rewards_by_time_step()
+                self._plot_actor_and_critic_losses_by_update()
+
             (
                 batch_observation_tensor,
                 batch_actions_tensor,
@@ -119,12 +141,13 @@ class WareHouseAgentA2C:
             self._actor_network_optimizer.step()
             self._critic_network_optimizer.step()
 
-            mean_return: float = batch_returns_tensor.mean().item()
-            mean_value: float = state_values_tensor.mean().item()
             mean_episode_reward: float = sum(batch_episode_rewards_list) / len(batch_episode_rewards_list)
             mean_episode_length: float = sum(batch_episode_lengths_list) / len(batch_episode_lengths_list)
             success_rate: float = sum(batch_episode_successes_list) / len(batch_episode_successes_list)
 
+            self._update_numbers.append(current_training_iteration)
+            self._actor_loss_history.append(float(actor_loss_tensor.item()))
+            self._critic_loss_history.append(float(critic_loss_tensor.item()))
 
             self._logger.info(
                 f"[A2C] Iteration={current_training_iteration} | "
@@ -142,8 +165,11 @@ class WareHouseAgentA2C:
             progress_bar.update(1)
 
         # Always save the true final resumed iteration explicitly.
-        final_training_iteration: int = start_iteration + self._total_training_iterations
+        final_training_iteration = start_iteration + self._total_training_iterations
         self._save_checkpoint(current_training_iteration=final_training_iteration)
+        self._plot_rewards_by_episode()
+        self._plot_rewards_by_time_step()
+        self._plot_actor_and_critic_losses_by_update()
         progress_bar.close()
         self._environment_obj.close()
 
@@ -153,6 +179,8 @@ class WareHouseAgentA2C:
         batch_observation_list: list[dict] = []
         batch_actions_list: list[int] = []
         batch_rewards_list: list[list[float]] = []
+        global_time_step: int = len(self._training_time_steps)
+        global_episode_number: int = len(self._training_episode_numbers)
 
         # ADD THESE
         batch_episode_rewards_list: list[float] = []
@@ -208,6 +236,9 @@ class WareHouseAgentA2C:
 
                 batch_actions_list.append(action_int)
                 episode_rewards_list.append(float(reward))
+                global_time_step += 1
+                self._training_time_steps.append(global_time_step)
+                self._training_rewards.append(float(reward))
 
                 # ADD THESE
                 episode_total_reward += float(reward)
@@ -226,6 +257,9 @@ class WareHouseAgentA2C:
             batch_episode_rewards_list.append(episode_total_reward)
             batch_episode_lengths_list.append(episode_length)
             batch_episode_successes_list.append(episode_success)
+            global_episode_number += 1
+            self._training_episode_numbers.append(global_episode_number)
+            self._training_episode_rewards.append(episode_total_reward)
 
         batch_observation_tensor: Tensor = self._get_observations_tensor(
             batch_observation_list=batch_observation_list
@@ -338,6 +372,46 @@ class WareHouseAgentA2C:
         self._logger.info(f"Successfully saved: {file_path}")
         self._logger.info("=" * 100)
 
+    def _plot_rewards_by_episode(self) -> None:
+        actual_episode_number: int = self._training_episode_numbers[-1] if self._training_episode_numbers else 0
+        file_path_reward_by_episode: Path = self._get_plot_file_path(
+            file_path_str="rewards_by_episode",
+            current_training_iteration=actual_episode_number,
+            file_type_str="png"
+        )
+        self._model_plotting.plot_rewards_by_episode(
+            file_path=file_path_reward_by_episode,
+            training_episode_numbers=self._training_episode_numbers,
+            training_episode_rewards=self._training_episode_rewards
+        )
+
+    def _plot_rewards_by_time_step(self) -> None:
+        actual_time_step: int = self._training_time_steps[-1] if self._training_time_steps else 0
+        file_path_rewards_by_timestep: Path = self._get_plot_file_path(
+            file_path_str="rewards_by_time_step",
+            current_training_iteration=actual_time_step,
+            file_type_str="png"
+        )
+        self._model_plotting.plot_rewards_by_time_step(
+            file_path=file_path_rewards_by_timestep,
+            training_time_steps=self._training_time_steps,
+            training_rewards=self._training_rewards
+        )
+
+    def _plot_actor_and_critic_losses_by_update(self) -> None:
+        actual_update_number: int = self._update_numbers[-1] if self._update_numbers else 0
+        file_path_actor_critic_loss: Path = self._get_plot_file_path(
+            file_path_str="actor_critic_losses_by_update",
+            current_training_iteration=actual_update_number,
+            file_type_str="png"
+        )
+        self._model_plotting.plot_actor_and_critic_losses_by_update(
+            file_path=file_path_actor_critic_loss,
+            update_numbers=self._update_numbers,
+            actor_loss_history=self._actor_loss_history,
+            critic_loss_history=self._critic_loss_history
+        )
+
     def _load_checkpoint_to_resume(self) -> int:
         checkpoint_directory_path: Path = Path("model_weights_a2c")
 
@@ -389,6 +463,13 @@ class WareHouseAgentA2C:
 
         return resumed_iteration
 
+    def _is_save_point(self, current_training_iteration: int, final_training_iteration: int) -> bool:
+        is_checkpoint_save_point: bool = current_training_iteration % 500 == 0
+        is_checkpoint_save_point_not_first_step: bool = current_training_iteration > 0
+        is_end_of_training_save_point: bool = current_training_iteration == final_training_iteration
+
+        return (is_checkpoint_save_point_not_first_step and is_checkpoint_save_point) or is_end_of_training_save_point
+
     def _get_file_path(self, current_training_iteration: int) -> Path:
         model_weights_directory_path: Path = Path("model_weights_a2c")
         model_weights_directory_path.mkdir(parents=True, exist_ok=True)
@@ -401,6 +482,15 @@ class WareHouseAgentA2C:
         filename: str = f"a2c_checkpoint_step_{current_training_iteration}_{timestamp_string}.pt"
 
         return model_weights_directory_path / filename
+
+    def _get_plot_file_path(self, file_path_str: str, current_training_iteration: int, file_type_str: str) -> Path:
+        plotting_directory_path: Path = Path("model_plots_a2c")
+        plotting_directory_path.mkdir(parents=True, exist_ok=True)
+
+        filename_str: str = (
+            f"{file_path_str}_{current_training_iteration}_{self._timestamp_string}.{file_type_str}"
+        )
+        return plotting_directory_path / filename_str
 
     def _get_device(self):
         if torch.cuda.is_available():

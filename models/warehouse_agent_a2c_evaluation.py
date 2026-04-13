@@ -13,14 +13,14 @@ from logger.logger import AppLogger
 from models.actor_network import ActorNetwork
 from models.critic_network import CriticNetwork
 from utils.constants import Constants
-from warehouse_env.warehouse_env_2 import WareHouseEnv2
+from warehouse_env.warehouse_env_3_A2C import WareHouseEnv3A2C
 from torch.distributions import Categorical
 
 class WareHouseAgentA2CEvaluation:
     def __init__(self) -> None:
         self._learning_rate: float = 3e-4
-        self._environment_obj: Env = WareHouseEnv2(render_mode=None)
-        self._environment_obj_human_render_mode: Env = WareHouseEnv2(render_mode="human")
+        self._environment_obj: Env = WareHouseEnv3A2C(render_mode=None)
+        self._environment_obj_human_render_mode: Env = WareHouseEnv3A2C(render_mode="human")
         self._logger = AppLogger.get_logger(self.__class__.__name__)
 
         self._action_dimensions: int = Discrete(4).n
@@ -50,7 +50,7 @@ class WareHouseAgentA2CEvaluation:
             checkpoint_files = sorted(checkpoint_path.glob("*.pt"), key=lambda p: p.stat().st_mtime)
             if len(checkpoint_files) == 0:
                 raise FileNotFoundError("No A2C checkpoint files found in model_weights_a2c/")
-            checkpoint_path = checkpoint_files[-50]
+            checkpoint_path = checkpoint_files[-1]
 
         checkpoint_time_step: int = self._load_checkpoint(checkpoint_path=checkpoint_path)
 
