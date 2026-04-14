@@ -83,12 +83,9 @@ class WareHouseEnv3(MiniGridEnv):
                 (5, 7),
                 (8, 4),
                 (10, 13),
-                # (12, 6),
                 (14, 17),
                 (16, 8),
-                # (18, 15),
                 (19, 5),
-                # (20, 12),
             ]
             self._num_obstacles = len(self._initial_obstacle_positions)
             self._place_dynamic_obstacles()
