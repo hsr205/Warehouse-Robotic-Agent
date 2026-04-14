@@ -33,7 +33,7 @@ class WareHouseAgentPPO:
 
         self._learning_rate: float = 3e-4
         self._entropy_coefficient: float = 0.075
-        self._updates_per_rollout: int = 10
+        self._updates_per_rollout: int = 20
         self._max_steps_per_episode: int = 100
         self._logger = AppLogger.get_logger(self.__class__.__name__)
         self._timestamp_string: str = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
@@ -69,7 +69,11 @@ class WareHouseAgentPPO:
 
         current_training_iteration: int = 0
         start_time: datetime = datetime.now(ZoneInfo("America/New_York"))
-        progress_bar: tqdm = tqdm(total=self._num_rollout_iterations, desc="Training Warehouse PPO Agent")
+        progress_bar: tqdm = tqdm(total=self._num_rollout_iterations,
+                                  desc=f"Training Warehouse PPO Agent in Environment: {self._environment_obj.__class__.__name__}")
+
+        self._logger.info(f"Training Warehouse PPO Agent in Environment: {self._environment_obj.__class__.__name__}")
+        self._logger.info("=" * 100)
 
         while current_training_iteration < self._num_rollout_iterations:
 
