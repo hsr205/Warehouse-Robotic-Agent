@@ -180,7 +180,7 @@ class ModelPlotting:
         self._plot_multiple_rewards_by_time_step(
             file_path=output_directory / f"comparison_rewards_by_time_step_{self._timestamp_string}.png",
             algorithm_histories_dict=reward_by_time_step_dict,
-            chart_title="PPO vs A2C vs DQN vs TRPO - Reward by Time Step",
+            chart_title="PPO vs A2C vs DQN vs TRPO - Reward by Environment Timesteps",
         )
 
         self._plot_multiple_rewards_by_episode(
@@ -191,34 +191,91 @@ class ModelPlotting:
 
     def _plot_multiple_rewards_by_time_step(self, file_path: Path,
                                             algorithm_histories_dict: dict[str, tuple[list[int], list[float]]],
-                                            chart_title: str, ) -> None:
+                                            chart_title: str) -> None:
         plt.figure(figsize=(14, 8))
+        axis = plt.gca()
+
+        axis.xaxis.set_major_formatter(FuncFormatter(self._format_large_numbers))
+        axis.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
+
+        moving_average_window_size: int = 1_000
 
         for algorithm_name, (training_time_steps, training_rewards) in algorithm_histories_dict.items():
-            plt.plot(training_time_steps, training_rewards, label=algorithm_name)
+            if not training_time_steps or not training_rewards:
+                continue
 
-        plt.title(chart_title)
-        plt.xlabel("Time Step")
-        plt.ylabel("Reward")
-        plt.legend()
-        plt.grid(True)
+            x_values: np.ndarray = np.array(training_time_steps, dtype=np.int64)
+            reward_values: np.ndarray = np.array(training_rewards, dtype=np.float32)
+
+            if len(reward_values) >= moving_average_window_size:
+                kernel: np.ndarray = (
+                        np.ones(moving_average_window_size, dtype=np.float32) / moving_average_window_size
+                )
+                smoothed_rewards: np.ndarray = np.convolve(reward_values, kernel, mode="valid")
+                smoothed_x_values: np.ndarray = x_values[moving_average_window_size - 1:]
+
+                axis.plot(
+                    smoothed_x_values,
+                    smoothed_rewards,
+                    label=f"{algorithm_name} ({moving_average_window_size}-step MA)",
+                )
+            else:
+                axis.plot(
+                    x_values,
+                    reward_values,
+                    label=f"{algorithm_name} (raw)",
+                    alpha=0.8,
+                )
+
+        axis.set_title(chart_title)
+        axis.set_xlabel("Environment Timesteps")
+        axis.set_ylabel("Reward")
+        axis.legend()
         plt.tight_layout()
         plt.savefig(file_path)
         plt.close()
 
     def _plot_multiple_rewards_by_episode(self, file_path: Path,
                                           algorithm_histories_dict: dict[str, tuple[list[int], list[float]]],
-                                          chart_title: str, ) -> None:
+                                          chart_title: str) -> None:
         plt.figure(figsize=(14, 8))
+        axis = plt.gca()
+
+        axis.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
+
+        moving_average_window_size: int = 100
 
         for algorithm_name, (training_episode_numbers, training_episode_rewards) in algorithm_histories_dict.items():
-            plt.plot(training_episode_numbers, training_episode_rewards, label=algorithm_name)
+            if not training_episode_numbers or not training_episode_rewards:
+                continue
 
-        plt.title(chart_title)
-        plt.xlabel("Episode")
-        plt.ylabel("Episode Reward")
-        plt.legend()
-        plt.grid(True)
+            x_values: np.ndarray = np.array(training_episode_numbers, dtype=np.int64)
+            reward_values: np.ndarray = np.array(training_episode_rewards, dtype=np.float32)
+
+            if len(reward_values) >= moving_average_window_size:
+                kernel: np.ndarray = (
+                        np.ones(moving_average_window_size, dtype=np.float32) / moving_average_window_size
+                )
+                smoothed_rewards: np.ndarray = np.convolve(reward_values, kernel, mode="valid")
+                smoothed_x_values: np.ndarray = x_values[moving_average_window_size - 1:]
+
+                axis.plot(
+                    smoothed_x_values,
+                    smoothed_rewards,
+                    label=f"{algorithm_name} ({moving_average_window_size}-episode MA)",
+                )
+            else:
+                axis.plot(
+                    x_values,
+                    reward_values,
+                    label=f"{algorithm_name} (raw)",
+                    alpha=0.8,
+                )
+
+        axis.set_title(chart_title)
+        axis.set_xlabel("Episode Number")
+        axis.set_ylabel("Episode Reward")
+        axis.legend()
         plt.tight_layout()
         plt.savefig(file_path)
         plt.close()

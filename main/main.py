@@ -72,14 +72,14 @@ def train_all_algorithms_for_one_environment(environment_obj) -> dict[str, Train
     if isinstance(environment_obj, WareHouseEnv):
         ppo_agent: WareHouseAgentPPO = WareHouseAgentPPO(
             environment_obj=environment_obj,
-            total_actions_taken_during_training_episode=2_000,
-            batch_size_before_policy_update=4_000,
+            num_rollout_iterations=1_000,
+            steps_per_rollout=1_024,
         )
     else:
         ppo_agent = WareHouseAgentPPO(
             environment_obj=environment_obj,
-            total_actions_taken_during_training_episode=3_000,
-            batch_size_before_policy_update=6_000,
+            num_rollout_iterations=1_000,
+            steps_per_rollout=2_048,
         )
 
     ppo_agent.train_agent()
