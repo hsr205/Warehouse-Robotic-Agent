@@ -63,20 +63,11 @@ def get_total_time_steps_for_environment(environment_obj) -> int:
 
 def train_all_ppo_agents(warehouse_env_list: list) -> None:
     for warehouse_env_obj in warehouse_env_list:
-
-        if isinstance(warehouse_env_obj, WareHouseEnv):
-            ppo_agent: WareHouseAgentPPO = WareHouseAgentPPO(
-                environment_obj=warehouse_env_obj,
-                num_rollout_iterations=2_048,
-                steps_per_rollout=2_048,
-            )
-
-        else:
-            ppo_agent = WareHouseAgentPPO(
-                environment_obj=warehouse_env_obj,
-                num_rollout_iterations=2_048,
-                steps_per_rollout=2_048,
-            )
+        ppo_agent = WareHouseAgentPPO(
+            environment_obj=warehouse_env_obj,
+            num_rollout_iterations=2_048,
+            steps_per_rollout=2_048,
+        )
 
         ppo_agent.train_agent()
 
