@@ -50,7 +50,7 @@ def main() -> int:
 
 def get_total_time_steps_for_environment(environment_obj) -> int:
     if isinstance(environment_obj, WareHouseEnv):
-        return 4_000_000
+        return 8_000_000
 
     if isinstance(environment_obj, WareHouseEnv2):
         return 18_000_000
