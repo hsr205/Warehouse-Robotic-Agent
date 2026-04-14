@@ -71,7 +71,10 @@ class WareHouseAgentBaseline:
         )
 
         model_save_file_path: Path = self._get_model_save_path()
+
+        self._logger.info(f"Saving Model Elements To: {model_save_file_path}")
         model.save(str(model_save_file_path))
+        self._logger.info(f"Successfully Saved Model Elements To: {model_save_file_path}")
 
         self._trained_model_file_path = Path(f"{model_save_file_path}.zip")
 
