@@ -232,7 +232,11 @@ class ModelPlotting:
         axis.set_ylabel("Reward")
         axis.legend()
         plt.tight_layout()
+        self._logger.info("=" * 100)
+        self._logger.info(f"Saving plot to: {file_path}")
         plt.savefig(file_path)
+        self._logger.info(f"Successfully saved plot to: {file_path}")
+        self._logger.info("=" * 100)
         plt.close()
 
     def _plot_multiple_rewards_by_episode(self, file_path: Path,
@@ -277,7 +281,11 @@ class ModelPlotting:
         axis.set_ylabel("Episode Reward")
         axis.legend()
         plt.tight_layout()
+        self._logger.info("=" * 100)
+        self._logger.info(f"Saving plot to: {file_path}")
         plt.savefig(file_path)
+        self._logger.info(f"Successfully saved plot to: {file_path}")
+        self._logger.info("=" * 100)
         plt.close()
 
     def _get_environment_output_directory(self, environment_obj) -> Path:
