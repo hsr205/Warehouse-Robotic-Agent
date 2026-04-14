@@ -48,30 +48,6 @@ def main() -> int:
         return 1
 
 
-def get_total_time_steps_for_environment(environment_obj) -> int:
-    if isinstance(environment_obj, WareHouseEnv):
-        return 5_000_000
-
-    if isinstance(environment_obj, WareHouseEnv2):
-        return 18_000_000
-
-    if isinstance(environment_obj, WareHouseEnv3):
-        return 18_000_000
-
-    raise ValueError(f"Unsupported environment type: {type(environment_obj).__name__}")
-
-
-def train_all_ppo_agents(warehouse_env_list: list) -> None:
-    for warehouse_env_obj in warehouse_env_list:
-        ppo_agent = WareHouseAgentPPO(
-            environment_obj=warehouse_env_obj,
-            num_rollout_iterations=2_048,
-            steps_per_rollout=2_048,
-        )
-
-        ppo_agent.train_agent()
-
-
 def train_all_algorithms_for_all_environments(warehouse_env_list: list[WareHouseEnv | WareHouseEnv2 | WareHouseEnv3]) -> \
         dict[
             str, TrainingHistory]:
@@ -80,7 +56,7 @@ def train_all_algorithms_for_all_environments(warehouse_env_list: list[WareHouse
 
     for warehouse_env_obj in warehouse_env_list:
 
-        total_time_steps: int = get_total_time_steps_for_environment(warehouse_env_obj)
+        total_time_steps: int = 5_000_000
 
         for baseline_algorithm_name in baseline_algorithms_list:
             baseline_agent: WareHouseAgentBaseline = WareHouseAgentBaseline(
@@ -107,6 +83,30 @@ def train_all_algorithms_for_all_environments(warehouse_env_list: list[WareHouse
         training_histories_dict[dict_key_str] = ppo_training_history
 
     return training_histories_dict
+
+
+def train_all_ppo_agents(warehouse_env_list: list) -> None:
+    for warehouse_env_obj in warehouse_env_list:
+        ppo_agent = WareHouseAgentPPO(
+            environment_obj=warehouse_env_obj,
+            num_rollout_iterations=2_048,
+            steps_per_rollout=2_048,
+        )
+
+        ppo_agent.train_agent()
+
+
+def get_total_time_steps_for_environment(environment_obj) -> int:
+    if isinstance(environment_obj, WareHouseEnv):
+        return 5_000_000
+
+    if isinstance(environment_obj, WareHouseEnv2):
+        return 18_000_000
+
+    if isinstance(environment_obj, WareHouseEnv3):
+        return 18_000_000
+
+    raise ValueError(f"Unsupported environment type: {type(environment_obj).__name__}")
 
 
 if __name__ == "__main__":
