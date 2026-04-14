@@ -33,7 +33,7 @@ class WareHouseAgentPPO:
 
         self._learning_rate: float = 3e-4
         self._entropy_coefficient: float = 0.075
-        self._updates_per_rollout: int = 20
+        self._updates_per_rollout: int = 30
         self._max_steps_per_episode: int = 100
         self._logger = AppLogger.get_logger(self.__class__.__name__)
         self._timestamp_string: str = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
