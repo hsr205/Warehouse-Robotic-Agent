@@ -31,7 +31,7 @@ class WareHouseAgentPPO:
         self._gamma: float = 0.95
         self._environment_obj = environment_obj
 
-        self._learning_rate: float = 3e-4
+        self._learning_rate: float = 1e-4
         self._entropy_coefficient: float = 0.075
         self._updates_per_rollout: int = 30
         self._max_steps_per_episode: int = 100
