@@ -21,7 +21,13 @@ from logger.logger import AppLogger
 from models.actor_network import ActorNetwork
 from models.critic_network import CriticNetwork
 from utils.model_plotting import ModelPlotting
+from utils.training_history import TrainingHistory
 from warehouse_env.warehouse_env import WareHouseEnv
+from warehouse_env.warehouse_env_2 import WareHouseEnv2
+from warehouse_env.warehouse_env_3 import WareHouseEnv3
+
+
+WarehouseEnvironmentClass = type[WareHouseEnv] | type[WareHouseEnv2] | type[WareHouseEnv3]
 
 
 class SharedAdam(Adam):
@@ -57,6 +63,7 @@ class A3CWorkerConfig:
     max_global_time_steps: int
     max_time_steps_per_episode: int
     base_seed: int
+    environment_class: WarehouseEnvironmentClass
 
 
 def _observation_dict_to_tensor(observation_dict: dict, device: torch.device) -> Tensor:
@@ -155,7 +162,7 @@ def _run_a3c_worker(
     _sync_local_with_global(local_actor_network, global_actor_network)
     _sync_local_with_global(local_critic_network, global_critic_network)
 
-    environment_obj: Env = WareHouseEnv(render_mode=None)
+    environment_obj: Env = worker_config.environment_class(render_mode=None)
     metrics_queue.put(("worker_started", worker_id, worker_config.base_seed + worker_id))
 
     local_episode_number: int = 0
@@ -233,6 +240,7 @@ def _run_a3c_worker(
                             "episode",
                             current_global_episode,
                             current_episode_reward,
+                            current_global_time_step,
                             current_episode_length,
                             episode_success,
                         )
@@ -375,6 +383,7 @@ def _run_a3c_worker(
 class WareHouseAgentA3C:
     def __init__(
             self,
+            environment_class: WarehouseEnvironmentClass = WareHouseEnv,
             number_of_workers: int | None = None,
             worker_rollout_steps: int = 32,
             max_global_time_steps: int = 1_000_000,
@@ -393,6 +402,7 @@ class WareHouseAgentA3C:
         self._max_grad_norm: float = 0.5
         self._timestamp_string: str = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
         self._base_seed: int = base_seed
+        self._environment_class: WarehouseEnvironmentClass = environment_class
 
         default_worker_count: int = 2
         self._number_of_workers: int = number_of_workers if number_of_workers is not None else default_worker_count
@@ -438,6 +448,7 @@ class WareHouseAgentA3C:
         self._training_time_steps: list[int] = []
         self._training_episode_numbers: list[int] = []
         self._training_episode_rewards: list[float] = []
+        self._training_episode_time_steps: list[int] = []
         self._update_numbers: list[int] = []
         self._actor_loss_history: list[float] = []
         self._critic_loss_history: list[float] = []
@@ -448,6 +459,7 @@ class WareHouseAgentA3C:
     @classmethod
     def create_smoke_test_agent(cls) -> "WareHouseAgentA3C":
         return cls(
+            environment_class=WareHouseEnv,
             number_of_workers=1,
             worker_rollout_steps=8,
             max_global_time_steps=64,
@@ -481,7 +493,8 @@ class WareHouseAgentA3C:
             worker_rollout_steps=self._worker_rollout_steps,
             max_global_time_steps=self._max_global_time_steps,
             max_time_steps_per_episode=self._max_time_steps_per_episode,
-            base_seed=self._base_seed
+            base_seed=self._base_seed,
+            environment_class=self._environment_class,
         )
 
         mp_context = mp.get_context("spawn")
@@ -493,7 +506,7 @@ class WareHouseAgentA3C:
 
         progress_bar: tqdm = tqdm(
             total=self._max_global_time_steps - start_global_time_step,
-            desc="Training Warehouse A3C Agent"
+            desc=f"Training Warehouse A3C Agent: {self._environment_class.__name__}"
         )
 
         worker_processes_list: list[mp.Process] = []
@@ -558,6 +571,24 @@ class WareHouseAgentA3C:
         )
         self._plot_all_training_curves()
 
+    def get_training_history(self) -> TrainingHistory:
+        sorted_time_steps, sorted_rewards = self._get_sorted_reward_history_by_time_step()
+        (
+            sorted_episode_numbers,
+            sorted_episode_rewards,
+            sorted_episode_time_steps,
+        ) = self._get_sorted_reward_history_by_episode()
+
+        return TrainingHistory(
+            algorithm_name="A3C",
+            environment_name=self._environment_class.__name__,
+            training_time_steps=sorted_time_steps,
+            training_rewards=sorted_rewards,
+            training_episode_numbers=sorted_episode_numbers,
+            training_episode_rewards=sorted_episode_rewards,
+            training_episode_time_steps=sorted_episode_time_steps,
+        )
+
     def _drain_metrics_queue(self, metrics_queue, progress_bar: tqdm, drain_all: bool = False) -> None:
         while True:
             try:
@@ -596,9 +627,10 @@ class WareHouseAgentA3C:
                 continue
 
             if event_type_str == "episode":
-                _, episode_number, episode_reward, episode_length, episode_success = event_tuple
+                _, episode_number, episode_reward, episode_time_step, episode_length, episode_success = event_tuple
                 self._training_episode_numbers.append(int(episode_number))
                 self._training_episode_rewards.append(float(episode_reward))
+                self._training_episode_time_steps.append(int(episode_time_step))
                 continue
 
             if event_type_str == "update":
@@ -671,7 +703,8 @@ class WareHouseAgentA3C:
         self._logger.info("=" * 100)
 
     def _plot_rewards_by_episode(self) -> None:
-        actual_episode_number: int = self._training_episode_numbers[-1] if self._training_episode_numbers else 0
+        sorted_episode_numbers, sorted_episode_rewards, _ = self._get_sorted_reward_history_by_episode()
+        actual_episode_number: int = sorted_episode_numbers[-1] if sorted_episode_numbers else 0
         file_path_reward_by_episode: Path = self._get_plot_file_path(
             file_path_str="rewards_by_episode",
             current_training_iteration=actual_episode_number,
@@ -679,12 +712,13 @@ class WareHouseAgentA3C:
         )
         self._model_plotting.plot_rewards_by_episode(
             file_path=file_path_reward_by_episode,
-            training_episode_numbers=self._training_episode_numbers,
-            training_episode_rewards=self._training_episode_rewards
+            training_episode_numbers=sorted_episode_numbers,
+            training_episode_rewards=sorted_episode_rewards
         )
 
     def _plot_rewards_by_time_step(self) -> None:
-        actual_time_step: int = self._training_time_steps[-1] if self._training_time_steps else 0
+        sorted_time_steps, sorted_rewards = self._get_sorted_reward_history_by_time_step()
+        actual_time_step: int = sorted_time_steps[-1] if sorted_time_steps else 0
         file_path_rewards_by_timestep: Path = self._get_plot_file_path(
             file_path_str="rewards_by_time_step",
             current_training_iteration=actual_time_step,
@@ -692,8 +726,8 @@ class WareHouseAgentA3C:
         )
         self._model_plotting.plot_rewards_by_time_step(
             file_path=file_path_rewards_by_timestep,
-            training_time_steps=self._training_time_steps,
-            training_rewards=self._training_rewards
+            training_time_steps=sorted_time_steps,
+            training_rewards=sorted_rewards
         )
 
     def _plot_actor_and_critic_losses_by_update(self) -> None:
@@ -714,6 +748,39 @@ class WareHouseAgentA3C:
         self._plot_rewards_by_episode()
         self._plot_rewards_by_time_step()
         self._plot_actor_and_critic_losses_by_update()
+
+    def _get_sorted_reward_history_by_time_step(self) -> tuple[list[int], list[float]]:
+        sorted_time_step_pairs_list = sorted(
+            zip(self._training_time_steps, self._training_rewards),
+            key=lambda pair: pair[0]
+        )
+
+        if not sorted_time_step_pairs_list:
+            return [], []
+
+        sorted_time_steps_list = [time_step for time_step, _ in sorted_time_step_pairs_list]
+        sorted_rewards_list = [reward for _, reward in sorted_time_step_pairs_list]
+
+        return sorted_time_steps_list, sorted_rewards_list
+
+    def _get_sorted_reward_history_by_episode(self) -> tuple[list[int], list[float], list[int]]:
+        sorted_episode_triplets_list = sorted(
+            zip(
+                self._training_episode_numbers,
+                self._training_episode_rewards,
+                self._training_episode_time_steps,
+            ),
+            key=lambda pair: pair[0]
+        )
+
+        if not sorted_episode_triplets_list:
+            return [], [], []
+
+        sorted_episode_numbers_list = [episode_number for episode_number, _, _ in sorted_episode_triplets_list]
+        sorted_episode_rewards_list = [reward for _, reward, _ in sorted_episode_triplets_list]
+        sorted_episode_time_steps_list = [time_step for _, _, time_step in sorted_episode_triplets_list]
+
+        return sorted_episode_numbers_list, sorted_episode_rewards_list, sorted_episode_time_steps_list
 
     def _should_plot_at_update(self, current_training_iteration: int) -> bool:
         return (
