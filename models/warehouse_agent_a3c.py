@@ -21,7 +21,7 @@ from logger.logger import AppLogger
 from models.actor_network import ActorNetwork
 from models.critic_network import CriticNetwork
 from utils.model_plotting import ModelPlotting
-from warehouse_env.warehouse_env_2 import WareHouseEnv2
+from warehouse_env.warehouse_env import WareHouseEnv
 
 
 class SharedAdam(Adam):
@@ -155,7 +155,7 @@ def _run_a3c_worker(
     _sync_local_with_global(local_actor_network, global_actor_network)
     _sync_local_with_global(local_critic_network, global_critic_network)
 
-    environment_obj: Env = WareHouseEnv2(render_mode=None)
+    environment_obj: Env = WareHouseEnv(render_mode=None)
     metrics_queue.put(("worker_started", worker_id, worker_config.base_seed + worker_id))
 
     local_episode_number: int = 0
@@ -379,7 +379,7 @@ class WareHouseAgentA3C:
             worker_rollout_steps: int = 32,
             max_global_time_steps: int = 1_000_000,
             max_time_steps_per_episode: int = 500,
-            checkpoint_interval_updates: int = 500,
+            checkpoint_interval_updates: int = 5_000,
             resume_from_latest_checkpoint: bool = True,
             resume_checkpoint_filename: str | None = None,
             checkpoint_directory_name: str = "model_weights_a3c",
@@ -400,6 +400,7 @@ class WareHouseAgentA3C:
         self._max_global_time_steps: int = max_global_time_steps
         self._max_time_steps_per_episode: int = max_time_steps_per_episode
         self._checkpoint_interval_updates: int = checkpoint_interval_updates
+        self._plot_interval_updates: int = checkpoint_interval_updates * 3
         self._resume_from_latest_checkpoint: bool = resume_from_latest_checkpoint
         self._resume_checkpoint_filename: str | None = resume_checkpoint_filename
         self._checkpoint_directory_name: str = checkpoint_directory_name
@@ -440,6 +441,9 @@ class WareHouseAgentA3C:
         self._update_numbers: list[int] = []
         self._actor_loss_history: list[float] = []
         self._critic_loss_history: list[float] = []
+        self._rollout_event_count: int = 0
+        self._update_log_interval: int = 250
+        self._rollout_log_interval: int = 500
 
     @classmethod
     def create_smoke_test_agent(cls) -> "WareHouseAgentA3C":
@@ -552,9 +556,7 @@ class WareHouseAgentA3C:
             current_training_iteration=final_update_number,
             current_global_time_step=final_global_time_step
         )
-        self._plot_rewards_by_episode()
-        self._plot_rewards_by_time_step()
-        self._plot_actor_and_critic_losses_by_update()
+        self._plot_all_training_curves()
 
     def _drain_metrics_queue(self, metrics_queue, progress_bar: tqdm, drain_all: bool = False) -> None:
         while True:
@@ -569,9 +571,15 @@ class WareHouseAgentA3C:
             if event_type_str == "rollout":
                 _, worker_id, rollout_length, rollout_step_metrics_list = event_tuple
 
-                self._logger.info(
-                    f"[A3C] Worker {worker_id} sent rollout with {rollout_length} step(s)."
-                )
+                self._rollout_event_count += 1
+
+                if (
+                    self._rollout_event_count <= self._number_of_workers
+                    or self._rollout_event_count % self._rollout_log_interval == 0
+                ):
+                    self._logger.info(
+                        f"[A3C] Worker {worker_id} sent rollout with {rollout_length} step(s)."
+                    )
 
                 for time_step_int, reward_float in rollout_step_metrics_list:
                     self._training_time_steps.append(time_step_int)
@@ -611,24 +619,30 @@ class WareHouseAgentA3C:
                 self._actor_loss_history.append(float(actor_loss))
                 self._critic_loss_history.append(float(critic_loss))
 
-                self._logger.info(
-                    f"[A3C] Update={update_number} | Worker={worker_id} | "
-                    f"Global Step={global_step} | Actor Loss={actor_loss:.6f} | "
-                    f"Critic Loss={critic_loss:.6f} | Entropy={entropy:.6f} | "
-                    f"Mean Episode Reward={mean_episode_reward:.4f} | "
-                    f"Mean Episode Length={mean_episode_length:.2f} | "
-                    f"Success Rate={success_rate:.2f}"
+                should_log_update_summary: bool = (
+                    int(update_number) <= self._number_of_workers
+                    or int(update_number) % self._update_log_interval == 0
+                    or self._is_save_point(current_training_iteration=int(update_number))
                 )
-                self._logger.info("=" * 100)
+
+                if should_log_update_summary:
+                    self._logger.info(
+                        f"[A3C] Update={update_number} | Worker={worker_id} | "
+                        f"Global Step={global_step} | Actor Loss={actor_loss:.6f} | "
+                        f"Critic Loss={critic_loss:.6f} | Entropy={entropy:.6f} | "
+                        f"Mean Episode Reward={mean_episode_reward:.4f} | "
+                        f"Mean Episode Length={mean_episode_length:.2f} | "
+                        f"Success Rate={success_rate:.2f}"
+                    )
+                    self._logger.info("=" * 100)
 
                 if self._is_save_point(current_training_iteration=int(update_number)):
                     self._save_checkpoint(
                         current_training_iteration=int(update_number),
                         current_global_time_step=int(global_step)
                     )
-                    self._plot_rewards_by_episode()
-                    self._plot_rewards_by_time_step()
-                    self._plot_actor_and_critic_losses_by_update()
+                    if self._should_plot_at_update(int(update_number)):
+                        self._plot_all_training_curves()
                 continue
 
             if event_type_str == "error":
@@ -694,6 +708,17 @@ class WareHouseAgentA3C:
             update_numbers=self._update_numbers,
             actor_loss_history=self._actor_loss_history,
             critic_loss_history=self._critic_loss_history
+        )
+
+    def _plot_all_training_curves(self) -> None:
+        self._plot_rewards_by_episode()
+        self._plot_rewards_by_time_step()
+        self._plot_actor_and_critic_losses_by_update()
+
+    def _should_plot_at_update(self, current_training_iteration: int) -> bool:
+        return (
+            current_training_iteration > 0
+            and current_training_iteration % self._plot_interval_updates == 0
         )
 
     def _load_checkpoint_to_resume(self) -> tuple[int, int]:

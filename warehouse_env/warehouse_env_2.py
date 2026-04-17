@@ -320,9 +320,11 @@ class WareHouseEnv2(MiniGridEnv):
                 agent_y_coordinate - pickup_y_coordinate)
 
             if current_distance_to_pickup < previous_distance_to_pickup:
-                reward += 5.0
+                # reward += 5.0
+                reward += 3.0
             elif current_distance_to_pickup > previous_distance_to_pickup:
-                reward -= .5
+                # reward -= .5
+                reward -= 3.0
 
         return reward
 
@@ -369,9 +371,12 @@ class WareHouseEnv2(MiniGridEnv):
         current_distance_to_goal: int = self._get_manhattan_distance(position_tuple=self._goal_position_tuple)
 
         if current_distance_to_goal < previous_distance_to_goal:
-            reward += 7.5
+            # reward += 7.5
+            reward += 3
         elif current_distance_to_goal > previous_distance_to_goal:
-            reward -= 2.5
+            # reward -= 2.5
+            reward -= 3
+
 
         return reward
 

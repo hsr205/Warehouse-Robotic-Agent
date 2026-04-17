@@ -222,7 +222,8 @@ class WareHouseEnv(MiniGridEnv):
 
         if is_agent_allowed_in_goal_state:
             self.agent_pos = previous_agent_position_tuple
-            reward = -0.50
+            # reward = -0.50
+            reward = -0.25
             is_terminated = False
             is_truncated = False
             observation = self.gen_obs()
@@ -234,6 +235,7 @@ class WareHouseEnv(MiniGridEnv):
         # Case 4: agent reaches goal state
         if self._agent_reaches_goal_state() and self._is_carrying_package:
             reward = 40
+            # reward = 50
             is_terminated = True
             info["collision"] = False
             self._is_carrying_package = False
@@ -351,9 +353,15 @@ class WareHouseEnv(MiniGridEnv):
                 agent_y_coordinate - pickup_y_coordinate)
 
             if current_distance_to_pickup < previous_distance_to_pickup:
-                reward += 0.2
+                # reward += 0.2
+                reward += 1
+                # reward += 3
+                # reward += 2.0
             elif current_distance_to_pickup > previous_distance_to_pickup:
-                reward -= 0.2
+                # reward -= 0.2
+                reward -= 1
+                # reward -= 3
+                # reward -= 2.0
 
         return reward
 
@@ -375,6 +383,7 @@ class WareHouseEnv(MiniGridEnv):
                 self.grid.set(i=package_x_coordinate, j=package_y_coordinate, v=None)
 
                 reward += 15.0
+                # reward += 20.0
 
                 return reward
 
@@ -429,9 +438,14 @@ class WareHouseEnv(MiniGridEnv):
         current_distance_to_goal: int = self._get_manhattan_distance(position_tuple=self._goal_position_tuple)
 
         if current_distance_to_goal < previous_distance_to_goal:
-            reward += 3.0
+            # reward += 3.0
+            reward += 2
+            # reward += 3
+            
         elif current_distance_to_goal > previous_distance_to_goal:
-            reward -= 1.5
+            # reward -= 1.5
+            reward -= 2
+            # reward -= 3
 
         return reward
 

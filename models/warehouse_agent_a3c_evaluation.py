@@ -13,14 +13,14 @@ from logger.logger import AppLogger
 from models.actor_network import ActorNetwork
 from models.critic_network import CriticNetwork
 from utils.constants import Constants
-from warehouse_env.warehouse_env_2 import WareHouseEnv2
+from warehouse_env.warehouse_env import WareHouseEnv
 
 
 class WareHouseAgentA3CEvaluation:
     def __init__(self) -> None:
         self._learning_rate: float = 3e-4
-        self._environment_obj: Env = WareHouseEnv2(render_mode=None)
-        self._environment_obj_human_render_mode: Env = WareHouseEnv2(render_mode="human")
+        self._environment_obj: Env = WareHouseEnv(render_mode=None)
+        self._environment_obj_human_render_mode: Env = WareHouseEnv(render_mode="human")
         self._logger = AppLogger.get_logger(self.__class__.__name__)
 
         self._action_dimensions: int = Discrete(4).n
