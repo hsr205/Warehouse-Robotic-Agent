@@ -14,10 +14,6 @@
 
 - [Overview](#overview)
 - [Initialization](#initialization)
-- [Environment Set-Up](#environment-set-up)
-  - [Configuration Management](#configuration-management)
-  - [Environment Variables](#environment-variables)
-  - [Configuration Module Structure](#configuration-module-structure)
 - [Application Execution](#application-execution)
 - [Sources](#sources)
 - [Conclusions](#conclusions)
@@ -26,7 +22,7 @@
 
 ## Overview
 
-**ADD OVERVIEW SECTION MATERIAL**
+In the modern day of Reinforcement Learning Agent adoption, there have emerged a wide variety of applications that agents could be used in the physical world to automate tasks previously completed by humans. A classical task of full warehouse automation using RL agents in a warehouse space, has displayed steady progress throughout the past few decades. Seeing this revelation unfolding, we as a group decided to train an RL agent in multiple 2-dimensional grid environments to first pick up and then deliver a package in ever increasingly difficult state space to navigate. Our project leverages two RL algorithms to highlight not only that this task is achievable but can be optimized through the Proximal Policy Optimization (PPO) and Asynchronous Advantage Actor-Critic (A3C) algorithms. It is through these two RL algorithms that we built the foundation of our project on. The ultimate goal being that our algorithms would help to optimize the actions of our warehouse package delivery agent.
 
 ---
 
@@ -96,62 +92,6 @@ poetry add numpy
 
 ---
 
-## Environment Set-Up
-
-### Configuration Management
-
-This project uses a centralized configuration module located at:
-
-```
-config/config.py
-```
-
-The configuration system is built using **Pydantic Settings** and is responsible for:
-
-- Loading environment variables from a `.env` file
-- Validating required configuration values
-- Enforcing strong typing
-- Failing fast if required variables are missing
-
----
-
-### Environment Variables
-
-A `.env` file must exist in the project root:
-
-```
-Final_Project_Materials/.env
-```
-
-Example:
-
-```
-APP_NAME=ROBOTIC_AGENT
-```
-
-The `Settings` class inside `config.py` defines all application configuration parameters.
-
-The settings object is instantiated once:
-
-```python
-settings = Settings()
-```
-
-It can then be imported anywhere in the project:
-
-```python
-from config.config import settings
-```
-
-This ensures:
-
-- Centralized configuration
-- No duplicated environment reads
-- Strong validation guarantees
-- Clean separation of configuration from application logic
-
----
-
 ## Application Execution
 
 The entry point of the application is:
@@ -195,11 +135,10 @@ This ensures:
 
 ## Sources
 
-**List all references used in the project.**
-
-**Format:**
-
-- Author. (Year). *Title*. Source. Link (if applicable)
+- Dresser, S. (2025, July 1). Amazon launches a new AI Foundation model to power its robotic fleet and  deploys its 1 millionth robot. Amazon News. https://www.aboutamazon.com/news/operations/amazon-million-robots-ai-foundation-model 
+- Gallagher, Ethan & Godwin Mahlangu, Israel. (2025). Reinforcement Learning Approaches to Dynamic Warehouse and Inventory Optimization. International Journal of Artificial Intelligence Tools. 13. 
+- Walmart opens first of four next generation fulfillment centers in Joliet, IL. Walmart Corporate News and  Information. (2022, September 28). https://corporate.walmart.com/news/2022/09/28/walmart-opens-first-of-four-next-generation-fulfllment-centers-in-joliet-il
+- Ziyan Wu, Wenhao Zhang, Rui Tang, Huilong Wang, Ivan Korolija, Reinforcement learning in building controls: A comparative study of algorithms considering model availability and policy representation, Journal of Building Engineering, Volume 90, 2024, 109497
 
 ---
 
