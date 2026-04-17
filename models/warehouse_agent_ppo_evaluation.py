@@ -4,7 +4,6 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from gymnasium import Env
 from gymnasium.spaces import Discrete
 from torch import Tensor
 from torch.optim import Adam
@@ -14,28 +13,16 @@ from logger.logger import AppLogger
 from models.actor_network import ActorNetwork
 from models.critic_network import CriticNetwork
 from warehouse_env.warehouse_env import WareHouseEnv
+from warehouse_env.warehouse_env_2 import WareHouseEnv2
 from warehouse_env.warehouse_env_3 import WareHouseEnv3
 
 
 class WareHouseAgentPPOEvaluation:
 
-    def __init__(self) -> None:
+    def __init__(self, environment_obj: WareHouseEnv | WareHouseEnv2 | WareHouseEnv3) -> None:
         self._learning_rate: float = 3e-4
-        self._environment_obj: Env = WareHouseEnv(render_mode=None)
+        self._environment_obj = environment_obj
         self._logger = AppLogger.get_logger(self.__class__.__name__)
-        # self._environment_obj: WareHouseEnv = WareHouseEnv(render_mode='none')
-        # self._environment_obj_human_render_mode: WareHouseEnv = WareHouseEnv(render_mode='human')
-
-        # self._environment_obj: WareHouseEnv2 = WareHouseEnv2(render_mode='none')
-        # self._environment_obj_human_render_mode: WareHouseEnv2 = WareHouseEnv2(render_mode='human')
-
-        self._environment_obj: WareHouseEnv3 = WareHouseEnv3(render_mode='none')
-        self._environment_obj_human_render_mode: WareHouseEnv3 = WareHouseEnv3(render_mode='human')
-
-        # # TODO: Uncomment after testing
-        # self._action_dimensions = self._environment_obj.action_space.n
-
-        # TODO: Remove after testing
         self._action_dimensions = self._environment_obj.action_space = Discrete(4).n
 
         self._device = self._get_device()
@@ -69,7 +56,7 @@ class WareHouseAgentPPOEvaluation:
                 # observation_dict, info_dict = self._environment_obj.reset()
 
                 # TODO: Remove after testing
-                observation_dict, info_dict = self._environment_obj_human_render_mode.reset()
+                observation_dict, info_dict = self._environment_obj.reset()
 
                 is_terminated: bool = False
                 is_truncated: bool = False
@@ -103,7 +90,7 @@ class WareHouseAgentPPOEvaluation:
                     # )
 
                     # TODO: Remove after testing
-                    observation_dict, reward, is_terminated, is_truncated, info_dict = self._environment_obj_human_render_mode.step(
+                    observation_dict, reward, is_terminated, is_truncated, info_dict = self._environment_obj.step(
                         action_int
                     )
 
@@ -179,10 +166,27 @@ class WareHouseAgentPPOEvaluation:
         self._logger.info(f"Successfully loaded: {checkpoint_path}")
         self._logger.info("=" * 100)
 
-        self._actor_network.load_state_dict(checkpoint_dict["actor_state_dict"])
-        self._critic_network.load_state_dict(checkpoint_dict["critic_state_dict"])
-        self._actor_network_optimizer.load_state_dict(checkpoint_dict["actor_optimizer_state_dict"])
-        self._critic_network_optimizer.load_state_dict(checkpoint_dict["critic_optimizer_state_dict"])
+        self._logger.info("Hyperparameters:")
+        self._logger.info("=" * 100)
+
+        self._logger.info(
+            f"Current Training Iteration: {checkpoint_dict.get("current_training_iteration", 0):,}")
+        self._logger.info(f"Num Updates Per Episode: {checkpoint_dict.get("num_updates_per_iteration", 0):,}")
+        self._logger.info(f"Max Time Steps Per Episode: {checkpoint_dict.get("max_time_steps_per_episode", 0):,}")
+        self._logger.info(
+            f"Total Actions Taken During Training Episode: {checkpoint_dict.get("total_actions_taken_during_training", 0):,}")
+        self._logger.info(
+            f"Total Actions Taken Before Policy Update: {checkpoint_dict.get("time_steps_per_batch_before_policy_update", 0):,}")
+        self._logger.info("")
+        self._logger.info(f"Clip Value: {checkpoint_dict.get("clip", 0.0)}")
+        self._logger.info(f"Learning Rate: {checkpoint_dict.get("learning_rate", 0.0)}")
+        self._logger.info(f"Entropy Coefficient: {checkpoint_dict.get("entropy_coefficient", 0.0)}")
+        self._logger.info("=" * 100)
+
+        self._actor_network.load_state_dict(checkpoint_dict.get("actor_state_dict", {}))
+        self._critic_network.load_state_dict(checkpoint_dict.get("critic_state_dict", {}))
+        self._actor_network_optimizer.load_state_dict(checkpoint_dict.get("actor_optimizer_state_dict", {}))
+        self._critic_network_optimizer.load_state_dict(checkpoint_dict.get("critic_optimizer_state_dict", {}))
 
         self._actor_network.to(self._device)
         self._critic_network.to(self._device)

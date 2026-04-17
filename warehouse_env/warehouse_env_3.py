@@ -83,12 +83,9 @@ class WareHouseEnv3(MiniGridEnv):
                 (5, 7),
                 (8, 4),
                 (10, 13),
-                # (12, 6),
                 (14, 17),
                 (16, 8),
-                # (18, 15),
                 (19, 5),
-                # (20, 12),
             ]
             self._num_obstacles = len(self._initial_obstacle_positions)
             self._place_dynamic_obstacles()
@@ -154,7 +151,6 @@ class WareHouseEnv3(MiniGridEnv):
 
             (21, 20), (21, 21),
             (12, 20), (13, 21), (14, 20),
-
 
             # NOTE - Remove for most working_demo_checkpoint_files_env_3/ files
             # (8, 22),
@@ -279,7 +275,7 @@ class WareHouseEnv3(MiniGridEnv):
         reward = self._agent_incentive_to_pickup_package(reward=reward, action_int=action_int)
 
         if self._agent_reaches_goal_state() and self._is_carrying_package:
-            reward = 70
+            reward = 100
             is_terminated = True
             info["collision"] = False
             self._is_carrying_package = False
@@ -292,8 +288,8 @@ class WareHouseEnv3(MiniGridEnv):
                 previous_agent_position_tuple=previous_agent_position_tuple,
             )
 
-            if not was_carrying_package_before_step:
-                reward += 0.25
+            # if not was_carrying_package_before_step:
+            #     reward += 0.25
         else:
             reward = self._add_agent_incentive_to_move_toward_package(
                 reward=reward,
@@ -444,9 +440,9 @@ class WareHouseEnv3(MiniGridEnv):
         current_distance_to_goal: int = self._get_manhattan_distance(position_tuple=self._goal_position_tuple)
 
         if current_distance_to_goal < previous_distance_to_goal:
-            reward += 15.0
+            reward += 22.5
         elif current_distance_to_goal > previous_distance_to_goal:
-            reward -= 3.5
+            reward -= 4.0
 
         return reward
 

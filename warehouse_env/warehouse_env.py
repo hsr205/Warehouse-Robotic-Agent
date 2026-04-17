@@ -233,7 +233,7 @@ class WareHouseEnv(MiniGridEnv):
         reward = self._agent_incentive_to_pickup_package(reward=reward, action_int=action_int)
         # Case 4: agent reaches goal state
         if self._agent_reaches_goal_state() and self._is_carrying_package:
-            reward = 30
+            reward = 40
             is_terminated = True
             info["collision"] = False
             self._is_carrying_package = False
@@ -247,8 +247,8 @@ class WareHouseEnv(MiniGridEnv):
                 previous_agent_position_tuple=previous_agent_position_tuple,
             )
 
-            if not was_carrying_package_before_step:
-                reward += 0.25
+            # if not was_carrying_package_before_step:
+            #     reward += 0.25
         else:
             reward = self._add_agent_incentive_to_move_toward_package(
                 reward=reward,

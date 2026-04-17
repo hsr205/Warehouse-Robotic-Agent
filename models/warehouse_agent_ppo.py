@@ -14,35 +14,35 @@ from tqdm import tqdm
 from logger.logger import AppLogger
 from models.actor_network import ActorNetwork
 from models.critic_network import CriticNetwork
+from utils.model_plotting import ModelPlotting
+from utils.training_history import TrainingHistory
+from warehouse_env.warehouse_env import WareHouseEnv
+from warehouse_env.warehouse_env_2 import WareHouseEnv2
 from warehouse_env.warehouse_env_3 import WareHouseEnv3
 
 
 class WareHouseAgentPPO:
 
-    def __init__(self) -> None:
+    def __init__(self, environment_obj: WareHouseEnv | WareHouseEnv2 | WareHouseEnv3, num_rollout_iterations: int,
+                 steps_per_rollout: int) -> None:
         # NOTE: CLIP acts as a threshold for making sure our policy
         #       does not change too dramatically when conducting SGA
         self._clip: float = 0.2
         self._gamma: float = 0.95
+        self._environment_obj = environment_obj
 
-        self._learning_rate: float = 3e-4
+        self._learning_rate: float = 1e-4
         self._entropy_coefficient: float = 0.075
-        self._num_updates_per_iteration: int = 5
-        self._max_time_steps_per_episode: int = 100
-        self._total_actions_taken_during_training: int = 2_000
-        self._time_steps_per_batch_before_policy_update: int = 4_000
-        # self._environment_obj: WareHouseEnv = WareHouseEnv(render_mode=None)
-        # self._environment_obj: WareHouseEnv2 = WareHouseEnv2(render_mode=None)
-        self._environment_obj: WareHouseEnv3 = WareHouseEnv3(render_mode=None)
+        self._updates_per_rollout: int = 30
+        self._max_steps_per_episode: int = 100
         self._logger = AppLogger.get_logger(self.__class__.__name__)
-        # # TODO: Uncomment after testing
-        # self._action_dimensions = self._environment_obj.action_space.n
-
-        # TODO: Remove after testing
+        self._timestamp_string: str = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
         self._action_dimensions = self._environment_obj.action_space = Discrete(4).n
 
-        self._device = self._get_device()
+        self._steps_per_rollout: int = steps_per_rollout
+        self._num_rollout_iterations: int = num_rollout_iterations
 
+        self._device = self._get_device()
         self._actor_network: ActorNetwork = ActorNetwork(output_dimensions=self._action_dimensions,
                                                          device=self._device)
         self._critic_network: CriticNetwork = CriticNetwork(device=self._device)
@@ -53,15 +53,29 @@ class WareHouseAgentPPO:
         self._critic_network_optimizer: Adam = Adam(params=self._critic_network.parameters(),
                                                     lr=self._learning_rate)
 
+        self._model_plotting: ModelPlotting = ModelPlotting()
+
+        self._training_rewards: list[float] = []
+        self._training_time_steps: list[int] = []
+
+        self._training_episode_numbers: list[int] = []
+        self._training_episode_rewards: list[float] = []
+
+        self._update_numbers: list[int] = []
+        self._actor_loss_history: list[float] = []
+        self._critic_loss_history: list[float] = []
+
     def train_agent(self) -> None:
 
         current_training_iteration: int = 0
         start_time: datetime = datetime.now(ZoneInfo("America/New_York"))
-        progress_bar: tqdm = tqdm(total=self._total_actions_taken_during_training, desc="Training Warehouse PPO Agent")
+        progress_bar: tqdm = tqdm(total=self._num_rollout_iterations,
+                                  desc=f"Training Warehouse PPO Agent in Environment: {self._environment_obj.__class__.__name__}")
 
-        while current_training_iteration <= self._total_actions_taken_during_training:
+        self._logger.info(f"Training Warehouse PPO Agent in Environment: {self._environment_obj.__class__.__name__}")
+        self._logger.info("=" * 100)
 
-            # self._entropy_coefficient = max(0.005, self._entropy_coefficient * 0.995)
+        while current_training_iteration < self._num_rollout_iterations:
 
             is_save_point: bool = self._is_save_point(current_training_iteration=current_training_iteration)
 
@@ -85,7 +99,7 @@ class WareHouseAgentPPO:
             actor_network_loss_tensor: Tensor | None = None
             critic_network_loss_tensor: Tensor | None = None
 
-            for _ in range(0, self._num_updates_per_iteration):
+            for update_index_within_iteration in range(0, self._updates_per_rollout):
                 v_tensor, current_log_probabilities_tensor, entropy_tensor = self._evaluate_agent(
                     batch_observation_tensor=batch_observation_tensor,
                     batch_actions_tensor=batch_actions_tensor
@@ -110,6 +124,8 @@ class WareHouseAgentPPO:
                 # NOTE: Maximizes loss through negation
                 #       this will be optimized by Adam later and will improve performance
                 # NOTE: The entropy coefficient is leverage as an exploration bonus
+                # NOTE: Un-Clipped -> r(θ)A
+                # NOTE: Clipped -> min(clip(r(θ),0.8,1.2) * advantage)
                 actor_network_loss_tensor: Tensor = -torch.min(surrogate_loss_tensor_1,
                                                                surrogate_loss_tensor_2).mean() - self._entropy_coefficient * entropy_tensor.mean()
 
@@ -128,6 +144,11 @@ class WareHouseAgentPPO:
                 critic_network_loss_tensor.backward()
                 self._critic_network_optimizer.step()
 
+                current_update_number: int = len(self._update_numbers) + 1
+                self._update_numbers.append(current_update_number)
+                self._actor_loss_history.append(actor_network_loss_tensor.item())
+                self._critic_loss_history.append(critic_network_loss_tensor.item())
+
             progress_bar.update(1)
 
             self._update_progress_bar(progress_bar=progress_bar, actor_network_loss_tensor=actor_network_loss_tensor,
@@ -136,6 +157,15 @@ class WareHouseAgentPPO:
             current_training_iteration += 1
 
         progress_bar.close()
+
+    def get_training_history(self) -> TrainingHistory:
+        return TrainingHistory(
+            algorithm_name="PPO",
+            training_time_steps=self._training_time_steps,
+            training_rewards=self._training_rewards,
+            training_episode_numbers=self._training_episode_numbers,
+            training_episode_rewards=self._training_episode_rewards,
+        )
 
     def _update_progress_bar(self, progress_bar: tqdm, actor_network_loss_tensor: Tensor,
                              critic_network_loss_tensor: Tensor) -> None:
@@ -148,7 +178,7 @@ class WareHouseAgentPPO:
     def _is_save_point(self, current_training_iteration: int) -> bool:
         is_checkpoint_save_point: bool = current_training_iteration % 500 == 0
         is_checkpoint_save_point_not_first_step: bool = current_training_iteration > 0
-        is_end_of_training_save_point: bool = current_training_iteration == self._total_actions_taken_during_training
+        is_end_of_training_save_point: bool = current_training_iteration == self._num_rollout_iterations
 
         is_save_point: bool = is_checkpoint_save_point_not_first_step and is_checkpoint_save_point or is_end_of_training_save_point
 
@@ -185,16 +215,18 @@ class WareHouseAgentPPO:
         batch_observation_list: list[dict] = []
         batch_rewards_list: list[list[float]] = []
         batch_log_probability_list: list[float] = []
+        global_time_step: int = len(self._training_time_steps)
+        global_episode_number: int = len(self._training_episode_numbers)
 
-        while current_time_step < self._time_steps_per_batch_before_policy_update:
+        while current_time_step < self._steps_per_rollout:
 
             episode_length: int = 0
             episode_rewards: list[float] = []
             observation_dict, info_dict = self._environment_obj.reset(seed=42 + current_time_step)
 
-            for _ in range(0, self._max_time_steps_per_episode):
+            for _ in range(0, self._max_steps_per_episode):
 
-                if current_time_step >= self._time_steps_per_batch_before_policy_update:
+                if current_time_step >= self._steps_per_rollout:
                     break
 
                 batch_observation_list.append(observation_dict)
@@ -204,7 +236,13 @@ class WareHouseAgentPPO:
                 observation_dict, reward, is_terminated, is_truncated, info_dict = self._environment_obj.step(
                     action_int
                 )
+
                 is_done: bool = is_terminated or is_truncated
+
+                global_time_step += 1
+
+                self._training_time_steps.append(global_time_step)
+                self._training_rewards.append(float(reward))
 
                 episode_rewards.append(float(reward))
                 batch_actions_list.append(action_int)
@@ -218,6 +256,12 @@ class WareHouseAgentPPO:
 
             batch_length_list.append(episode_length + 1)
             batch_rewards_list.append(episode_rewards)
+
+            episode_total_reward: float = sum(episode_rewards)
+
+            global_episode_number += 1
+            self._training_episode_numbers.append(global_episode_number)
+            self._training_episode_rewards.append(episode_total_reward)
 
         batch_observation_tensor: Tensor = self._get_observations_tensor(batch_observation_list=batch_observation_list)
 
@@ -311,16 +355,18 @@ class WareHouseAgentPPO:
 
     def _save_checkpoint(self, current_training_iteration: int, start_time: datetime) -> None:
 
-        file_path: Path = self._get_file_path(current_training_iteration=current_training_iteration)
+        file_path: Path = self._get_file_path(file_path_str="checkpoint_step",
+                                              current_training_iteration=current_training_iteration,
+                                              file_type_str="pt")
 
         checkpoint_dict: dict[str, int | OrderedDict | dict] = {
             "clip": self._clip,
             "learning_rate": self._learning_rate,
             "entropy_coefficient": self._entropy_coefficient,
-            "num_updates_per_iteration": self._num_updates_per_iteration,
-            "max_time_steps_per_episode": self._max_time_steps_per_episode,
-            "total_actions_taken_during_training": self._total_actions_taken_during_training,
-            "time_steps_per_batch_before_policy_update": self._time_steps_per_batch_before_policy_update,
+            "updates_per_rollout": self._updates_per_rollout,
+            "max_steps_per_episode": self._max_steps_per_episode,
+            "num_rollout_iterations": self._num_rollout_iterations,
+            "steps_per_rollout": self._steps_per_rollout,
             "current_training_iteration": current_training_iteration,
             "actor_state_dict": self._actor_network.state_dict(),
             "critic_state_dict": self._critic_network.state_dict(),
@@ -330,10 +376,53 @@ class WareHouseAgentPPO:
 
         torch.save(checkpoint_dict, file_path)
 
+        self._plot_rewards_by_episode()
+        self._plot_rewards_by_time_step()
+        self._plot_actor_and_critic_losses_by_update()
+
         self._display_save_checkpoint_logger_statements(file_path=file_path, start_time=start_time)
 
+    def _plot_rewards_by_episode(self) -> None:
+        actual_episode_number: int = self._training_episode_numbers[-1] if self._training_episode_numbers else 0
+
+        file_path_reward_by_episode: Path = self._get_file_path(
+            file_path_str="rewards_by_episode",
+            current_training_iteration=actual_episode_number,
+            file_type_str="png"
+        )
+
+        self._model_plotting.plot_rewards_by_episode(file_path=file_path_reward_by_episode,
+                                                     training_episode_numbers=self._training_episode_numbers,
+                                                     training_episode_rewards=self._training_episode_rewards)
+
+    def _plot_rewards_by_time_step(self) -> None:
+        actual_time_step: int = self._training_time_steps[-1] if self._training_time_steps else 0
+
+        file_path_rewards_by_timestep: Path = self._get_file_path(
+            file_path_str="rewards_by_time_step",
+            current_training_iteration=actual_time_step,
+            file_type_str="png"
+        )
+
+        self._model_plotting.plot_rewards_by_time_step(file_path=file_path_rewards_by_timestep,
+                                                       training_time_steps=self._training_time_steps,
+                                                       training_rewards=self._training_rewards)
+
+    def _plot_actor_and_critic_losses_by_update(self) -> None:
+
+        actual_update_number: int = self._update_numbers[-1] if self._update_numbers else 0
+        file_path_actor_critic_loss: Path = self._get_file_path(
+            file_path_str="actor_critic_losses_by_update",
+            current_training_iteration=actual_update_number,
+            file_type_str="png"
+        )
+
+        self._model_plotting.plot_actor_and_critic_losses_by_update(file_path=file_path_actor_critic_loss,
+                                                                    update_numbers=self._update_numbers,
+                                                                    actor_loss_history=self._actor_loss_history,
+                                                                    critic_loss_history=self._critic_loss_history)
+
     def _display_save_checkpoint_logger_statements(self, file_path: Path, start_time: datetime) -> None:
-        self._logger.info("\n")
         self._logger.info("=" * 100)
         now = datetime.now(ZoneInfo("America/New_York"))
         formatted_start_time = start_time.strftime("%b-%d, %I:%M:%S %p")
@@ -343,16 +432,31 @@ class WareHouseAgentPPO:
         self._logger.info(f"Successfully saved: {file_path}")
         self._logger.info("=" * 100)
 
-    def _get_file_path(self, current_training_iteration: int) -> Path:
+    def _get_file_path(self, file_path_str: str, current_training_iteration: int, file_type_str: str) -> Path:
 
-        model_weights_directory_path: Path = Path("model_weights")
+        model_weights_directory_path: Path = self._get_directory_path()
+
         model_weights_directory_path.mkdir(parents=True, exist_ok=True)
-        timestamp_string: str = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 
-        filename: str = f"checkpoint_step_{current_training_iteration}_{timestamp_string}.pt"
-        checkpoint_path: Path = model_weights_directory_path / filename
+        filename_str: str = f"{file_path_str}_{current_training_iteration}_{self._timestamp_string}.{file_type_str}"
+        checkpoint_path: Path = model_weights_directory_path / filename_str
 
         return checkpoint_path
+
+    def _get_directory_path(self) -> Path:
+
+        directory_path: Path = Path("model_weights")
+
+        if isinstance(self._environment_obj, WareHouseEnv):
+            directory_path = Path("model_weights/warehouse_env_files_1")
+
+        elif isinstance(self._environment_obj, WareHouseEnv2):
+            directory_path = Path("model_weights/warehouse_env_files_2")
+
+        elif isinstance(self._environment_obj, WareHouseEnv3):
+            directory_path = Path("model_weights/warehouse_env_files_3")
+
+        return directory_path
 
     def _get_device(self):
         if torch.cuda.is_available():

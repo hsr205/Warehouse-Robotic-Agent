@@ -1,8 +1,11 @@
 from logging import Logger
 
 from logger.logger import AppLogger
+from models.warehouse_agent_baseline import WareHouseAgentBaseline
 from models.warehouse_agent_ppo import WareHouseAgentPPO
 from models.warehouse_agent_ppo_evaluation import WareHouseAgentPPOEvaluation
+from utils.model_plotting import ModelPlotting
+from utils.training_history import TrainingHistory
 from warehouse_env.warehouse_env import WareHouseEnv
 from warehouse_env.warehouse_env_2 import WareHouseEnv2
 from warehouse_env.warehouse_env_3 import WareHouseEnv3
@@ -10,26 +13,100 @@ from warehouse_env.warehouse_env_3 import WareHouseEnv3
 
 def main() -> int:
     logger: Logger = AppLogger().get_logger(__name__)
-    warehouse_agent_ppo: WareHouseAgentPPO = WareHouseAgentPPO()
-    warehouse_agent_ppo_evaluation: WareHouseAgentPPOEvaluation = WareHouseAgentPPOEvaluation()
-    warehouse_env: WareHouseEnv = WareHouseEnv()
-    warehouse_env_2: WareHouseEnv2 = WareHouseEnv2()
-    warehouse_env_3: WareHouseEnv3 = WareHouseEnv3()
+
+    model_plotting: ModelPlotting = ModelPlotting()
+
+    warehouse_env: WareHouseEnv = WareHouseEnv(render_mode=None)
+    warehouse_agent_ppo_evaluation: WareHouseAgentPPOEvaluation = WareHouseAgentPPOEvaluation(
+        environment_obj=warehouse_env)
+
+    warehouse_env_2: WareHouseEnv2 = WareHouseEnv2(render_mode=None)
+    warehouse_agent_ppo_evaluation_2: WareHouseAgentPPOEvaluation = WareHouseAgentPPOEvaluation(
+        environment_obj=warehouse_env_2)
+
+    warehouse_env_3: WareHouseEnv3 = WareHouseEnv3(render_mode=None)
+    warehouse_agent_ppo_evaluation_3: WareHouseAgentPPOEvaluation = WareHouseAgentPPOEvaluation(
+        environment_obj=warehouse_env_3)
+
+    warehouse_env_list: list = [warehouse_env, warehouse_env_2, warehouse_env_3]
 
     try:
+        for current_environment_obj in warehouse_env_list:
+            training_histories_dict: dict[str, TrainingHistory] = train_all_algorithms_for_all_environments(
+                warehouse_env_list=warehouse_env_list
+            )
 
-        # warehouse_env.randomly_navigate_custom_grid_world()
-        # warehouse_env_2.randomly_navigate_custom_grid_world()
-        # warehouse_env_3.randomly_navigate_custom_grid_world()
-        warehouse_agent_ppo.train_agent()
-        # warehouse_agent_ppo_evaluation.evaluate_agent()
+            model_plotting.create_comparison_plots_for_environment(
+                environment_obj=current_environment_obj,
+                training_histories_dict=training_histories_dict,
+            )
 
         return 0
 
-    except Exception as e:
-        logger.error(f"Exception Thrown: {e}")
+    except Exception as exception:
+        logger.error(f"Exception Thrown: {exception}")
+        return 1
 
-    return 1
+
+def train_all_algorithms_for_all_environments(warehouse_env_list: list[WareHouseEnv | WareHouseEnv2 | WareHouseEnv3]) -> \
+        dict[
+            str, TrainingHistory]:
+    baseline_algorithms_list: list[str] = ["a2c", "dqn", "trpo"]
+    training_histories_dict: dict[str, TrainingHistory] = {}
+
+    for warehouse_env_obj in warehouse_env_list:
+
+        total_time_steps: int = 5_000_000
+
+        for baseline_algorithm_name in baseline_algorithms_list:
+            baseline_agent: WareHouseAgentBaseline = WareHouseAgentBaseline(
+                environment_obj=warehouse_env_obj,
+                total_time_steps=total_time_steps,
+                algorithm_name=baseline_algorithm_name,
+            )
+
+            baseline_agent.train_agent()
+            baseline_training_history: TrainingHistory = baseline_agent.get_training_history()
+            dict_key_str: str = warehouse_env_obj.__class__.__name__ + "_" + baseline_training_history.algorithm_name
+            training_histories_dict[dict_key_str] = baseline_training_history
+            training_histories_dict[baseline_training_history.algorithm_name] = baseline_training_history
+
+        ppo_agent = WareHouseAgentPPO(
+            environment_obj=warehouse_env_obj,
+            num_rollout_iterations=2_048,
+            steps_per_rollout=2_048,
+        )
+
+        ppo_agent.train_agent()
+        ppo_training_history: TrainingHistory = ppo_agent.get_training_history()
+        dict_key_str: str = warehouse_env_obj.__class__.__name__ + "_" + ppo_training_history.algorithm_name
+        training_histories_dict[dict_key_str] = ppo_training_history
+
+    return training_histories_dict
+
+
+def train_all_ppo_agents(warehouse_env_list: list) -> None:
+    for warehouse_env_obj in warehouse_env_list:
+        ppo_agent = WareHouseAgentPPO(
+            environment_obj=warehouse_env_obj,
+            num_rollout_iterations=2_048,
+            steps_per_rollout=2_048,
+        )
+
+        ppo_agent.train_agent()
+
+
+def get_total_time_steps_for_environment(environment_obj) -> int:
+    if isinstance(environment_obj, WareHouseEnv):
+        return 5_000_000
+
+    if isinstance(environment_obj, WareHouseEnv2):
+        return 18_000_000
+
+    if isinstance(environment_obj, WareHouseEnv3):
+        return 18_000_000
+
+    raise ValueError(f"Unsupported environment type: {type(environment_obj).__name__}")
 
 
 if __name__ == "__main__":
