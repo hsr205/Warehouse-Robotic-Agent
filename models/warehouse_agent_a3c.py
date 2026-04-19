@@ -393,6 +393,7 @@ class WareHouseAgentA3C:
             resume_checkpoint_filename: str | None = None,
             checkpoint_directory_name: str = "model_weights_a3c",
             plot_directory_name: str = "model_plots_a3c",
+            enable_training_plots: bool = True,
             base_seed: int = 42,
     ) -> None:
         self._gamma: float = 0.95
@@ -415,6 +416,7 @@ class WareHouseAgentA3C:
         self._resume_checkpoint_filename: str | None = resume_checkpoint_filename
         self._checkpoint_directory_name: str = checkpoint_directory_name
         self._plot_directory_name: str = plot_directory_name
+        self._enable_training_plots: bool = enable_training_plots
 
         self._logger = AppLogger.get_logger(self.__class__.__name__)
         self._model_plotting: ModelPlotting = ModelPlotting()
@@ -468,6 +470,7 @@ class WareHouseAgentA3C:
             resume_from_latest_checkpoint=False,
             checkpoint_directory_name="model_weights_a3c_smoke",
             plot_directory_name="model_plots_a3c_smoke",
+            enable_training_plots=True,
             base_seed=123
         )
 
@@ -569,7 +572,8 @@ class WareHouseAgentA3C:
             current_training_iteration=final_update_number,
             current_global_time_step=final_global_time_step
         )
-        self._plot_all_training_curves()
+        if self._enable_training_plots:
+            self._plot_all_training_curves()
 
     def get_training_history(self) -> TrainingHistory:
         sorted_time_steps, sorted_rewards = self._get_sorted_reward_history_by_time_step()
@@ -673,7 +677,7 @@ class WareHouseAgentA3C:
                         current_training_iteration=int(update_number),
                         current_global_time_step=int(global_step)
                     )
-                    if self._should_plot_at_update(int(update_number)):
+                    if self._enable_training_plots and self._should_plot_at_update(int(update_number)):
                         self._plot_all_training_curves()
                 continue
 

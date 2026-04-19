@@ -10,6 +10,8 @@ __pycache__/
 mdp_diagrams/
 
 model_weights/
+model_outputs/
+mdp_diagrams/
 
 model_weights_a2c/
 model_weights_a3c/

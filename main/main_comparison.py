@@ -15,23 +15,32 @@ from warehouse_env.warehouse_env_3 import WareHouseEnv3
 
 ENVIRONMENT_CLASSES: list[type[WareHouseEnv] | type[WareHouseEnv2] | type[WareHouseEnv3]] = [
     WareHouseEnv,
-    WareHouseEnv2,
-    WareHouseEnv3,
 ]
 
 BASELINE_ALGORITHM_NAMES: list[str] = ["a2c", "dqn", "trpo"]
-COMPARISON_SNAPSHOT_TIMESTEP_INTERVAL: int = 500_000
 
-BASELINE_TOTAL_TIME_STEPS_BY_ENVIRONMENT_NAME: dict[str, int] = {
-    "WareHouseEnv": 5_000_000,
-    "WareHouseEnv2":5_000_000,
-    "WareHouseEnv3":5_000_000,
+BASELINE_TOTAL_TIME_STEPS_BY_ENVIRONMENT_NAME: dict[str, dict[str, int]] = {
+    "WareHouseEnv": {
+        "a2c": 2_000_000,
+        "dqn": 2_000_000,
+        "trpo": 2_000_000,
+    },
+    #"WareHouseEnv2": {
+    #    "a2c": 5_000_000,
+    #    "dqn": 5_000_000,
+    #    "trpo": 5_000_000,
+    #},
+    #"WareHouseEnv3": {
+    #    "a2c": 5_000_000,
+    #    "dqn": 5_000_000,
+    #    "trpo": 5_000_000,
+    #},
 }
 
 A3C_MAX_GLOBAL_TIME_STEPS_BY_ENVIRONMENT_NAME: dict[str, int] = {
-    "WareHouseEnv": 5_000_000,
-    "WareHouseEnv2": 5_000_000,
-    "WareHouseEnv3": 5_000_000,
+    "WareHouseEnv": 2_000_000,
+  #  "WareHouseEnv2": 5_000_000,
+    #"WareHouseEnv3": 5_000_000,
 }
 
 
@@ -49,19 +58,9 @@ def main() -> int:
             environment_obj = environment_class(render_mode=None)
 
             try:
-                model_plotting.create_comparison_plots_for_environment(
+                model_plotting.create_episode_comparison_plot_for_environment(
                     environment_obj=environment_obj,
                     training_histories_dict=training_histories_dict,
-                )
-                model_plotting.create_timestep_snapshot_plots_for_environment(
-                    environment_obj=environment_obj,
-                    training_histories_dict=training_histories_dict,
-                    time_step_interval=COMPARISON_SNAPSHOT_TIMESTEP_INTERVAL,
-                )
-                model_plotting.create_episode_snapshot_plots_for_environment(
-                    environment_obj=environment_obj,
-                    training_histories_dict=training_histories_dict,
-                    time_step_interval=COMPARISON_SNAPSHOT_TIMESTEP_INTERVAL,
                 )
             finally:
                 environment_obj.close()
@@ -78,14 +77,16 @@ def train_all_algorithms_for_environment(
 ) -> dict[str, TrainingHistory]:
     training_histories_dict: dict[str, TrainingHistory] = {}
     environment_name: str = environment_class.__name__
-
-    baseline_total_time_steps: int = BASELINE_TOTAL_TIME_STEPS_BY_ENVIRONMENT_NAME[environment_name]
+    baseline_total_time_steps_by_algorithm_name: dict[str, int] = (
+        BASELINE_TOTAL_TIME_STEPS_BY_ENVIRONMENT_NAME[environment_name]
+    )
 
     baseline_model_output_directory = get_output_root_directory() / "baseline_models" / get_environment_directory_name(
         environment_class=environment_class
     )
 
     for baseline_algorithm_name in BASELINE_ALGORITHM_NAMES:
+        baseline_total_time_steps: int = baseline_total_time_steps_by_algorithm_name[baseline_algorithm_name]
         baseline_environment_obj = environment_class(render_mode=None)
 
         baseline_agent = WareHouseAgentBaseline(
@@ -119,6 +120,7 @@ def train_all_algorithms_for_environment(
                 environment_class=environment_class
             )
         ),
+        enable_training_plots=False,
         base_seed=42,
     )
 
