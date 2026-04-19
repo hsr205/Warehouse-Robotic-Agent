@@ -2,7 +2,6 @@ from logging import Logger
 
 from logger.logger import AppLogger
 from main.main_comparison import (
-    COMPARISON_SNAPSHOT_TIMESTEP_INTERVAL,
     ENVIRONMENT_CLASSES,
     load_training_histories_for_environment,
 )
@@ -24,19 +23,9 @@ def main() -> int:
             environment_obj = environment_class(render_mode=None)
 
             try:
-                model_plotting.create_comparison_plots_for_environment(
+                model_plotting.create_episode_comparison_plot_for_environment(
                     environment_obj=environment_obj,
                     training_histories_dict=training_histories_dict,
-                )
-                model_plotting.create_timestep_snapshot_plots_for_environment(
-                    environment_obj=environment_obj,
-                    training_histories_dict=training_histories_dict,
-                    time_step_interval=COMPARISON_SNAPSHOT_TIMESTEP_INTERVAL,
-                )
-                model_plotting.create_episode_snapshot_plots_for_environment(
-                    environment_obj=environment_obj,
-                    training_histories_dict=training_histories_dict,
-                    time_step_interval=COMPARISON_SNAPSHOT_TIMESTEP_INTERVAL,
                 )
             finally:
                 environment_obj.close()
