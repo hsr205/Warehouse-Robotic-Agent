@@ -190,6 +190,33 @@ class ModelPlotting:
 
         return reward_by_time_step_path, reward_by_episode_path
 
+    def create_episode_comparison_plot_for_environment(
+            self,
+            environment_obj: WareHouseEnv | WareHouseEnv2 | WareHouseEnv3,
+            training_histories_dict: dict[str, TrainingHistory],
+    ) -> Path:
+        output_directory: Path = self._get_environment_output_directory(environment_obj)
+        output_directory.mkdir(parents=True, exist_ok=True)
+
+        ordered_training_histories_dict = self._get_ordered_training_histories(training_histories_dict)
+        reward_by_episode_dict: dict[str, tuple[list[int], list[float]]] = {}
+
+        for algorithm_name, training_history in ordered_training_histories_dict.items():
+            reward_by_episode_dict[algorithm_name] = (
+                training_history.training_episode_numbers,
+                training_history.training_episode_rewards,
+            )
+
+        reward_by_episode_path = output_directory / f"comparison_rewards_by_episode_{self._timestamp_string}.png"
+
+        self._plot_multiple_rewards_by_episode(
+            file_path=reward_by_episode_path,
+            algorithm_histories_dict=reward_by_episode_dict,
+            chart_title="A3C vs A2C vs DQN vs TRPO - Reward by Episode",
+        )
+
+        return reward_by_episode_path
+
     def create_episode_snapshot_plots_for_environment(
             self,
             environment_obj: WareHouseEnv | WareHouseEnv2 | WareHouseEnv3,
