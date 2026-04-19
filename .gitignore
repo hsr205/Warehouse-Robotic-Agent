@@ -12,3 +12,8 @@ mdp_diagrams/
 model_weights/
 
 model_weights_a2c/
+model_weights_a3c/
+model_weights_a3c_smoke/
+model_plots_a2c/
+model_plots_a3c/
+model_plots_a3c_smoke/

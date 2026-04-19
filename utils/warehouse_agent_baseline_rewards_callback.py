@@ -12,6 +12,7 @@ class WarehouseAgentBaselineRewardsCallBack(BaseCallback):
 
         self.training_episode_numbers: list[int] = []
         self.training_episode_rewards: list[float] = []
+        self.training_episode_time_steps: list[int] = []
         self._total_time_steps: int = total_time_steps
         self._algorithm_name_str: str = algorithm_name_str
 
@@ -45,6 +46,7 @@ class WarehouseAgentBaselineRewardsCallBack(BaseCallback):
                 self._episode_counter += 1
                 self.training_episode_numbers.append(self._episode_counter)
                 self.training_episode_rewards.append(self._current_episode_reward)
+                self.training_episode_time_steps.append(current_time_step)
                 self._current_episode_reward = 0.0
 
         if self._progress_bar is not None:

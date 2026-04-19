@@ -31,15 +31,8 @@ def main() -> int:
     warehouse_env_list: list = [warehouse_env, warehouse_env_2, warehouse_env_3]
 
     try:
-        for current_environment_obj in warehouse_env_list:
-            training_histories_dict: dict[str, TrainingHistory] = train_all_algorithms_for_all_environments(
-                warehouse_env_list=warehouse_env_list
-            )
 
-            model_plotting.create_comparison_plots_for_environment(
-                environment_obj=current_environment_obj,
-                training_histories_dict=training_histories_dict,
-            )
+        train_all_ppo_agents(warehouse_env_list=warehouse_env_list)
 
         return 0
 
